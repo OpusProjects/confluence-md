@@ -185,7 +185,7 @@ def read_md(path: str) -> str:
 # ===================================================================
 
 
-def md_to_confluence_storage(md_text: str) -> str:
+def md_to_confluence_storage(md_text: str, image_paths: list[str] | None = None) -> str:
     """Convert a Markdown string to Confluence storage-format XHTML.
 
     The conversion pipeline is:
@@ -198,7 +198,10 @@ def md_to_confluence_storage(md_text: str) -> str:
            and replace them with Confluence macro placeholders.
         4. Convert fenced code blocks (<pre><code>) into Confluence
            "code" structured macros with CDATA bodies.
-        5. Substitute all placeholders back into the serialised HTML.
+        5. Convert images (<img>) into Confluence image macros: external
+           URLs become ri:url references, local paths become
+           ri:attachment references (the caller uploads the files).
+        6. Substitute all placeholders back into the serialised HTML.
 
     Null-byte delimited placeholders are used because BeautifulSoup's
     html.parser serialiser mangles CDATA sections and ac: namespaced
@@ -206,6 +209,9 @@ def md_to_confluence_storage(md_text: str) -> str:
 
     Args:
         md_text: Raw Markdown source text.
+        image_paths: Optional list that collects the local image paths
+            referenced by the Markdown (as written in the source). The
+            caller is responsible for attaching those files to the page.
 
     Returns:
         A string of Confluence storage-format XHTML, ready to be passed
@@ -296,7 +302,30 @@ def md_to_confluence_storage(md_text: str) -> str:
         )
         pre.replace_with(placeholder)
 
-    # -- Step 5: Serialise and substitute placeholders ------------------
+    # -- Step 5: Convert images to Confluence image macros --------------
+    # External URLs are referenced directly (ri:url). Local paths become
+    # attachment references (ri:attachment) by filename; the caller
+    # attaches the actual files via the API after creating the page.
+    for i, img in enumerate(soup.find_all("img")):
+        src = img.get("src", "")
+        alt = img.get("alt", "")
+        placeholder = f"\x00IMG{i}\x00"
+        if re.match(r"^https?://", src):
+            macros[placeholder] = (
+                f'<ac:image ac:alt="{html.escape(alt)}">'
+                f'<ri:url ri:value="{html.escape(src)}" /></ac:image>'
+            )
+        else:
+            if image_paths is not None:
+                image_paths.append(src)
+            filename = Path(src).name
+            macros[placeholder] = (
+                f'<ac:image ac:alt="{html.escape(alt)}">'
+                f'<ri:attachment ri:filename="{html.escape(filename)}" /></ac:image>'
+            )
+        img.replace_with(placeholder)
+
+    # -- Step 6: Serialise and substitute placeholders ------------------
     result = str(soup)
     for placeholder, macro in macros.items():
         result = result.replace(placeholder, macro)
@@ -415,7 +444,7 @@ def _render_list(el, indent: int = 0) -> list[str]:
     return lines
 
 
-def confluence_storage_to_md(storage_html: str) -> str:
+def confluence_storage_to_md(storage_html: str, attachment_prefix: str = "") -> str:
     """Convert Confluence storage-format XHTML to a Markdown string.
 
     The conversion pipeline is:
@@ -429,16 +458,22 @@ def confluence_storage_to_md(storage_html: str) -> str:
            so the link label survives the cleanup step.
         5. Replace panel macros (info, note, warning, tip, panel) with
            blockquotes carrying a bold label, so their content survives.
-        6. Decompose (remove) all remaining ac: and ri: namespaced
+        6. Replace images (ac:image) with Markdown image syntax:
+           attachment references point into attachment_prefix, external
+           URL references keep their URL.
+        7. Decompose (remove) all remaining ac: and ri: namespaced
            elements that have no Markdown equivalent.
-        7. Walk top-level elements and convert each to Markdown:
+        8. Walk top-level elements and convert each to Markdown:
            headings, paragraphs, lists, tables, blockquotes, hr, etc.
-        8. If a TOC placeholder is present, build the table of contents
+        9. If a TOC placeholder is present, build the table of contents
            from the collected headings and substitute it in.
 
     Args:
         storage_html: Raw Confluence storage-format XHTML string,
             typically from page["body"]["storage"]["value"].
+        attachment_prefix: Path prefix (e.g. "My_Page_attachments/")
+            prepended to attachment filenames in image links. The caller
+            downloads the attachment files to that location.
 
     Returns:
         A Markdown string representing the page content.
@@ -518,14 +553,32 @@ def confluence_storage_to_md(storage_html: str) -> str:
                 bq.append(child.extract())
         macro.replace_with(bq)
 
-    # -- Step 6: Remove all remaining Confluence-specific elements -----
+    # -- Step 6: Convert images to Markdown image syntax ---------------
+    # Attachment references become links into the attachments folder
+    # (downloaded by cmd_download); external URL references keep their
+    # URL. Anything else (e.g. user avatars) is dropped.
+    for image in soup.find_all("ac:image"):
+        alt = image.get("ac:alt", "")
+        attachment = image.find("ri:attachment")
+        url = image.find("ri:url")
+        if attachment is not None:
+            filename = attachment.get("ri:filename", "")
+            image.replace_with(
+                soup.new_string(f"![{alt or filename}]({attachment_prefix}{filename})")
+            )
+        elif url is not None:
+            image.replace_with(soup.new_string(f"![{alt}]({url.get('ri:value', '')})"))
+        else:
+            image.decompose()
+
+    # -- Step 7: Remove all remaining Confluence-specific elements -----
     # ac: elements are structured macros and their sub-elements.
     # ri: elements are resource identifiers (e.g. for attachments).
     # Neither has a Markdown equivalent.
     for tag in soup.find_all(re.compile(r"^(ac|ri):")):
         tag.decompose()
 
-    # -- Step 7: Walk top-level elements and convert to Markdown -------
+    # -- Step 8: Walk top-level elements and convert to Markdown -------
     lines = []  # Accumulates output Markdown lines.
     headings = []  # Collects (level, text) tuples for TOC generation.
 
@@ -604,7 +657,7 @@ def confluence_storage_to_md(storage_html: str) -> str:
             # Extract whatever inline text we can and keep it.
             lines.append(_inline_md(el).strip())
 
-    # -- Step 8: Generate the Table of Contents ------------------------
+    # -- Step 9: Generate the Table of Contents ------------------------
     # If a TOC macro was found, build a nested list of anchor links
     # from the headings collected during the element walk, then swap
     # it in for the null-byte placeholder.
@@ -626,12 +679,40 @@ def confluence_storage_to_md(storage_html: str) -> str:
 # ===================================================================
 
 
+def attach_local_images(
+    client: Confluence, page_id: str, md_file: str, image_paths: list[str]
+) -> None:
+    """Attach local image files referenced by a Markdown file to a page.
+
+    Relative paths are resolved against the Markdown file's directory.
+    Missing files are reported and skipped -- the page then shows a
+    broken attachment reference for that image.
+
+    Args:
+        client: Authenticated Confluence client.
+        page_id: ID of the page to attach the files to.
+        md_file: Path of the Markdown file the images were referenced in.
+        image_paths: Image paths exactly as written in the Markdown.
+    """
+    base = Path(md_file).resolve().parent
+    for src in dict.fromkeys(image_paths):  # de-duplicate, keep order
+        path = Path(src)
+        if not path.is_absolute():
+            path = base / path
+        if not path.is_file():
+            print(f"WARNING: image not found, skipped: {src}")
+            continue
+        api(client.attach_file, str(path), page_id=page_id)
+        print(f"Attached image: {path.name}")
+
+
 def cmd_upload(args) -> None:
     """Create a new Confluence page from a local Markdown file.
 
     The page is created as a child of the parent page identified by the
     provided URL. If a page with the same title already exists in the
     space, the command aborts with an error and suggests using "edit".
+    Local images referenced by the Markdown are uploaded as attachments.
 
     Args:
         args: Parsed argparse namespace with attributes:
@@ -653,8 +734,10 @@ def cmd_upload(args) -> None:
         print("Use the 'edit' subcommand to replace its content.")
         sys.exit(1)
 
-    # Read the Markdown file and convert it to Confluence storage format.
-    storage_body = md_to_confluence_storage(read_md(args.file))
+    # Read the Markdown file and convert it to Confluence storage format,
+    # collecting any local image paths for attachment upload.
+    image_paths: list[str] = []
+    storage_body = md_to_confluence_storage(read_md(args.file), image_paths)
 
     # Create the page via the Confluence REST API.
     result = api(
@@ -665,6 +748,9 @@ def cmd_upload(args) -> None:
         parent_id=parent_id,
         representation="storage",
     )
+
+    # Upload the referenced local images as attachments of the new page.
+    attach_local_images(client, result["id"], args.file, image_paths)
     print(f"Created new page: {CONFLUENCE_URL}/spaces/{space_key}/pages/{result['id']}")
 
 
@@ -700,8 +786,10 @@ def cmd_edit(args) -> None:
             print("Choose a different --title.")
             sys.exit(1)
 
-    # Read the Markdown file and convert it to Confluence storage format.
-    storage_body = md_to_confluence_storage(read_md(args.file))
+    # Read the Markdown file and convert it to Confluence storage format,
+    # collecting any local image paths for attachment upload.
+    image_paths: list[str] = []
+    storage_body = md_to_confluence_storage(read_md(args.file), image_paths)
 
     # Push the new content as the next version of the page.
     api(
@@ -711,6 +799,10 @@ def cmd_edit(args) -> None:
         body=storage_body,
         representation="storage",
     )
+
+    # Upload the referenced local images as attachments of the page.
+    # Re-attaching an existing filename creates a new attachment version.
+    attach_local_images(client, page_id, args.file, image_paths)
     print(f"Replaced content of '{title}': {CONFLUENCE_URL}/spaces/{space_key}/pages/{page_id}")
 
 
@@ -720,7 +812,8 @@ def cmd_download(args) -> None:
     Fetches the page body in storage format, converts it to Markdown,
     and writes it to disk. If the page contained a "children" macro,
     the child pages are fetched from the API and rendered as a list
-    of Markdown links.
+    of Markdown links. Images referencing page attachments are saved
+    into a "<name>_attachments/" folder next to the output file.
 
     The output filename defaults to a sanitised version of the page title
     if not explicitly provided.
@@ -738,8 +831,22 @@ def cmd_download(args) -> None:
     page_id = page["id"]
     space_key = page["space"]["key"]
 
-    # Convert the Confluence storage format XHTML to Markdown.
-    md_text = confluence_storage_to_md(page["body"]["storage"]["value"])
+    # Determine the output file path first -- the attachments folder is
+    # named after it and image links must point there.
+    if args.output:
+        out_path = Path(args.output)
+    else:
+        # Derive a safe filename from the page title: strip special chars,
+        # collapse whitespace into underscores, remove leading/trailing underscores.
+        safe_title = re.sub(r"\s+", "_", re.sub(r"[^\w\s-]", "", title)).strip("_")
+        out_path = Path(f"{safe_title}.md")
+    att_dir = out_path.with_name(f"{out_path.stem}_attachments")
+
+    # Convert the Confluence storage format XHTML to Markdown. Image
+    # links to attachments point into the attachments folder.
+    md_text = confluence_storage_to_md(
+        page["body"]["storage"]["value"], attachment_prefix=f"{att_dir.name}/"
+    )
 
     # Resolve [CHILD_PAGES] markers by fetching actual child pages from
     # the API and rendering them as a Markdown list of links.
@@ -757,14 +864,23 @@ def cmd_download(args) -> None:
             child_lines.append(f"- [{child['title']}]({child_url})")
         md_text = md_text.replace("[CHILD_PAGES]", "\n".join(child_lines))
 
-    # Determine the output file path.
-    if args.output:
-        out_path = Path(args.output)
-    else:
-        # Derive a safe filename from the page title: strip special chars,
-        # collapse whitespace into underscores, remove leading/trailing underscores.
-        safe_title = re.sub(r"\s+", "_", re.sub(r"[^\w\s-]", "", title)).strip("_")
-        out_path = Path(f"{safe_title}.md")
+    # Download the attachments referenced by image links into the
+    # attachments folder, matching them to the page's attachments by name.
+    referenced = re.findall(rf"!\[[^\]]*\]\({re.escape(att_dir.name)}/([^)]+)\)", md_text)
+    if referenced:
+        attachments = api(client.get_attachments_from_content, page_id, limit=250)
+        by_title = {a["title"]: a for a in attachments.get("results", [])}
+        att_dir.mkdir(parents=True, exist_ok=True)
+        saved = 0
+        for name in dict.fromkeys(referenced):
+            attachment = by_title.get(name)
+            if not attachment:
+                print(f"WARNING: attachment not found on page, skipped: {name}")
+                continue
+            content = api(client.get, attachment["_links"]["download"], not_json_response=True)
+            (att_dir / Path(name).name).write_bytes(content)
+            saved += 1
+        print(f"Downloaded {saved} attachment(s) -> {att_dir}/")
 
     # Write the Markdown file with the page title as an h1 header.
     out_path.write_text(f"# {title}\n\n{md_text}", encoding="utf-8")
