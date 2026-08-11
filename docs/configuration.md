@@ -1,11 +1,25 @@
 # Configuration
 
+Everything needed to get from a fresh clone to a working setup: install the
+dependencies, generate an API token, and store the credentials in a `.env` file.
+
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [1. Create an Atlassian API token](#1-create-an-atlassian-api-token)
+- [2. Find your Confluence URL](#2-find-your-confluence-url)
+- [3. Set up the `.env` file](#3-set-up-the-env-file)
+
 ## Prerequisites
+
+The tool only needs a recent Python and its package manager; everything else
+is installed in the next step.
 
 - Python 3.10+
 - pip
 
 ## Installation
+
+Install the four runtime dependencies with a single pip command:
 
 ```bash
 pip install -r src/requirements.txt
@@ -16,8 +30,8 @@ This installs the four dependencies: `atlassian-python-api`, `python-dotenv`,
 
 ## 1. Create an Atlassian API token
 
+The script authenticates with an API token rather than your password.
 Atlassian Cloud does **not** allow authentication with your regular password.
-You need an API token.
 
 1. Go to [https://id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
 2. Log in with your Atlassian account
@@ -27,7 +41,8 @@ You need an API token.
 
 ## 2. Find your Confluence URL
 
-Your Confluence base URL follows this pattern:
+The base URL identifies your organisation's Confluence Cloud instance and
+follows this pattern:
 
 ```
 https://<your-org>.atlassian.net/wiki
@@ -37,6 +52,7 @@ You can find it in your browser address bar when you open Confluence.
 
 ## 3. Set up the `.env` file
 
+The three credentials live in a `.env` file that the script loads at startup.
 Copy the template from the project root and fill in your values:
 
 ```bash

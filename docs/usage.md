@@ -2,6 +2,10 @@
 
 The script has three subcommands. `--` options are always optional modifiers.
 
+- [`upload` — create a new child page](#upload--create-a-new-child-page)
+- [`edit` — replace the content of an existing page](#edit--replace-the-content-of-an-existing-page)
+- [`download` — save a page as Markdown](#download--save-a-page-as-markdown)
+
 ```
 python src/confluence_md.py upload   <file.md> <parent_url> <title>
 python src/confluence_md.py edit     <file.md> <page_url>   [--title "..."]
