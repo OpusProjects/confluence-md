@@ -2,7 +2,17 @@
 
 Every element listed below converts in both directions (upload and download).
 
+- [Formatting](#formatting)
+- [Block elements](#block-elements)
+- [Code blocks](#code-blocks)
+- [Tables](#tables)
+- [Table of Contents — `[TOC]`](#table-of-contents--toc)
+- [Child Pages — `[CHILD_PAGES]`](#child-pages--child_pages)
+- [Known limitations](#known-limitations)
+
 ## Formatting
+
+Inline styles map one-to-one between Markdown syntax and Confluence HTML tags:
 
 | Markdown | Confluence | Direction |
 |---|---|---|
@@ -15,6 +25,8 @@ Every element listed below converts in both directions (upload and download).
 
 ## Block elements
 
+Structural elements keep their shape in both directions:
+
 | Markdown | Confluence | Direction |
 |---|---|---|
 | `# Heading 1` ... `###### Heading 6` | `<h1>` ... `<h6>` | both |
@@ -25,6 +37,8 @@ Every element listed below converts in both directions (upload and download).
 | indented sub-items | nested lists | both |
 
 ## Code blocks
+
+Fenced code blocks keep their content and language across the round trip:
 
 ````
 ```python
@@ -37,6 +51,8 @@ Converts to / from the Confluence `code` macro with `language=python`.
 The language tag is preserved in both directions.
 
 ## Tables
+
+Markdown pipe tables map to Confluence tables and back:
 
 ```
 | Name   | Role      |
@@ -82,6 +98,9 @@ pages:
 To re-upload and keep the dynamic macro, replace the links with `[CHILD_PAGES]`.
 
 ## Known limitations
+
+Some Confluence elements have no Markdown equivalent and degrade or disappear
+during conversion:
 
 - **Images and attachments** are not converted. Confluence image macros are
   stripped on download.
