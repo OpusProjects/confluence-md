@@ -161,6 +161,33 @@ def api(fn, *args, **kwargs) -> Any:
         sys.exit(1)
 
 
+def parse_version_marker(md_text: str) -> tuple[str, str | None, int | None]:
+    """Split the confluence-md version marker off a Markdown string.
+
+    Downloaded pages start with a marker comment recording which page and
+    version they came from::
+
+        <!-- confluence-md page_id=123456789 version=7 -->
+
+    The marker lets "edit" detect that the remote page has changed since
+    the download, and is stripped before any content is uploaded.
+
+    Args:
+        md_text: Markdown text, possibly starting with a marker.
+
+    Returns:
+        A (text, page_id, version) tuple. text is the Markdown without
+        the marker; page_id and version are None when no marker is found.
+    """
+    m = re.match(
+        r"\s*<!--\s*confluence-md\s+page_id=(\d+)\s+version=(\d+)\s*-->\s*\n?",
+        md_text,
+    )
+    if not m:
+        return md_text, None, None
+    return md_text[m.end() :], m.group(1), int(m.group(2))
+
+
 def read_md(path: str) -> str:
     """Read a Markdown file from disk and return its contents as a string.
 
@@ -734,10 +761,12 @@ def cmd_upload(args) -> None:
         print("Use the 'edit' subcommand to replace its content.")
         sys.exit(1)
 
-    # Read the Markdown file and convert it to Confluence storage format,
-    # collecting any local image paths for attachment upload.
+    # Read the Markdown file, dropping any version marker left over from
+    # a download, and convert it to Confluence storage format, collecting
+    # any local image paths for attachment upload.
+    md_text, _, _ = parse_version_marker(read_md(args.file))
     image_paths: list[str] = []
-    storage_body = md_to_confluence_storage(read_md(args.file), image_paths)
+    storage_body = md_to_confluence_storage(md_text, image_paths)
 
     # Create the page via the Confluence REST API.
     result = api(
@@ -761,19 +790,41 @@ def cmd_edit(args) -> None:
     converts the local Markdown file to storage format, and pushes it
     as a new version of the page. The page history is preserved.
 
+    If the Markdown file carries a version marker from "download" and the
+    remote page has moved past that version, the command aborts so that
+    someone else's edits are not silently overwritten. Pass --force to
+    overwrite anyway.
+
     Args:
         args: Parsed argparse namespace with attributes:
             file     -- Path to the local .md file.
             page_url -- URL of the Confluence page to overwrite.
             title    -- Optional new title; keeps the existing one if None.
+            force    -- Overwrite even if the remote version has changed.
     """
     client = get_client()
 
-    # Fetch the existing page to get its space key and current title.
-    page = get_page(client, args.page_url, expand="space")
+    # Read the Markdown file and split off the version marker (if any).
+    md_text, marker_page_id, marker_version = parse_version_marker(read_md(args.file))
+
+    # Fetch the existing page to get its space key, title and version.
+    page = get_page(client, args.page_url, expand="space,version")
     title = args.title or page["title"]
     space_key = page["space"]["key"]
     page_id = page["id"]
+
+    # Concurrent-edit guard: if this file was downloaded from the same
+    # page, make sure nobody has edited the page since the download.
+    if marker_version is not None and marker_page_id == page_id:
+        current_version = page.get("version", {}).get("number")
+        if current_version is not None and current_version != marker_version and not args.force:
+            print(
+                f"ERROR: The page has changed on Confluence since it was downloaded "
+                f"(version {marker_version} -> {current_version})."
+            )
+            print("Someone else's edits would be overwritten.")
+            print("Re-download the page and merge your changes, or pass --force to overwrite.")
+            sys.exit(1)
 
     # When renaming, make sure the new title is not already taken by a
     # different page in the space -- the API would reject the update with
@@ -786,10 +837,10 @@ def cmd_edit(args) -> None:
             print("Choose a different --title.")
             sys.exit(1)
 
-    # Read the Markdown file and convert it to Confluence storage format,
+    # Convert the (marker-free) Markdown to Confluence storage format,
     # collecting any local image paths for attachment upload.
     image_paths: list[str] = []
-    storage_body = md_to_confluence_storage(read_md(args.file), image_paths)
+    storage_body = md_to_confluence_storage(md_text, image_paths)
 
     # Push the new content as the next version of the page.
     api(
@@ -825,11 +876,12 @@ def cmd_download(args) -> None:
     """
     client = get_client()
 
-    # Fetch the page with its storage body and space metadata.
-    page = get_page(client, args.page_url, expand="body.storage,space")
+    # Fetch the page with its storage body, space and version metadata.
+    page = get_page(client, args.page_url, expand="body.storage,space,version")
     title = page["title"]
     page_id = page["id"]
     space_key = page["space"]["key"]
+    version = page.get("version", {}).get("number")
 
     # Determine the output file path first -- the attachments folder is
     # named after it and image links must point there.
@@ -882,8 +934,10 @@ def cmd_download(args) -> None:
             saved += 1
         print(f"Downloaded {saved} attachment(s) -> {att_dir}/")
 
-    # Write the Markdown file with the page title as an h1 header.
-    out_path.write_text(f"# {title}\n\n{md_text}", encoding="utf-8")
+    # Write the Markdown file with a version marker (used by "edit" to
+    # detect concurrent changes) and the page title as an h1 header.
+    marker = f"<!-- confluence-md page_id={page_id} version={version} -->\n" if version else ""
+    out_path.write_text(f"{marker}# {title}\n\n{md_text}", encoding="utf-8")
     print(f"Downloaded '{title}' -> {out_path}")
 
 
@@ -915,6 +969,11 @@ def main() -> None:
     ed.add_argument("file", help="Path to the .md file")
     ed.add_argument("page_url", help="URL of the Confluence page to overwrite")
     ed.add_argument("--title", help="Rename the page at the same time (optional)")
+    ed.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite even if the page changed on Confluence since it was downloaded",
+    )
     ed.set_defaults(func=cmd_edit)
 
     # -- download subcommand -------------------------------------------

@@ -8,6 +8,10 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Concurrent-edit guard** — `download` embeds a version marker in the
+  Markdown file; `edit` aborts when the remote page has changed since that
+  download (pass `--force` to overwrite anyway). Markers are stripped before
+  any upload.
 - **`--version` flag** printing the tool version.
 - **Installable package** — `pip install .` now provides a `confluence-md`
   command on the PATH.
