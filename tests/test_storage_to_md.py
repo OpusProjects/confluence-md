@@ -93,14 +93,53 @@ class TestMacros:
 
     def test_unknown_macro_stripped(self):
         storage = (
-            '<p>before</p><ac:structured-macro ac:name="info">'
-            "<ac:rich-text-body><p>panel text</p></ac:rich-text-body>"
+            '<p>before</p><ac:structured-macro ac:name="excerpt">'
+            "<ac:rich-text-body><p>excerpt text</p></ac:rich-text-body>"
             "</ac:structured-macro><p>after</p>"
         )
         out = confluence_storage_to_md(storage)
         assert "before" in out
         assert "after" in out
         assert "ac:" not in out
+
+
+class TestPanels:
+    def test_info_panel_becomes_labeled_blockquote(self):
+        storage = (
+            '<ac:structured-macro ac:name="info">'
+            "<ac:rich-text-body><p>useful info</p></ac:rich-text-body>"
+            "</ac:structured-macro>"
+        )
+        out = confluence_storage_to_md(storage)
+        assert "> **Info:** useful info" in out
+
+    def test_panel_title_used_as_label(self):
+        storage = (
+            '<ac:structured-macro ac:name="warning">'
+            '<ac:parameter ac:name="title">Danger Zone</ac:parameter>'
+            "<ac:rich-text-body><p>be careful</p></ac:rich-text-body>"
+            "</ac:structured-macro>"
+        )
+        out = confluence_storage_to_md(storage)
+        assert "> **Danger Zone:** be careful" in out
+
+    def test_multi_paragraph_panel(self):
+        storage = (
+            '<ac:structured-macro ac:name="note">'
+            "<ac:rich-text-body><p>first</p><p>second</p></ac:rich-text-body>"
+            "</ac:structured-macro>"
+        )
+        out = confluence_storage_to_md(storage)
+        assert "> **Note:** first" in out
+        assert "> second" in out
+
+    def test_empty_panel_keeps_label(self):
+        storage = (
+            '<ac:structured-macro ac:name="tip"><ac:rich-text-body>'
+            "</ac:rich-text-body></ac:structured-macro>"
+        )
+        out = confluence_storage_to_md(storage)
+        assert "> **Tip:**" in out
 
 
 class TestPageLinks:
