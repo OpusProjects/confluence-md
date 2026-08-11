@@ -28,6 +28,14 @@ pip install -r src/requirements.txt
 This installs the four dependencies: `atlassian-python-api`, `python-dotenv`,
 `markdown` and `beautifulsoup4`.
 
+Alternatively, install the project as a package to get a `confluence-md`
+command on your PATH (usable anywhere instead of `python src/confluence_md.py`):
+
+```bash
+pip install .
+confluence-md --version
+```
+
 ## 1. Create an Atlassian API token
 
 The script authenticates with an API token rather than your password.

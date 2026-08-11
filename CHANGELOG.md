@@ -9,6 +9,8 @@ project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - **`--version` flag** printing the tool version.
+- **Installable package** — `pip install .` now provides a `confluence-md`
+  command on the PATH.
 - **Panel conversion on download** — Info / Note / Warning / Tip / Panel
   macros become blockquotes with a bold label (previously their content was
   lost). Multi-paragraph blockquotes now also render one quoted line per
