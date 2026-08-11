@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "confluence-md"
+description = "Two-way Markdown ↔ Confluence sync from the command line, written in Python"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Blai Peidro" }]
+keywords = ["confluence", "markdown", "atlassian", "cli", "sync"]
+dynamic = ["version"]
+dependencies = [
+    "atlassian-python-api>=4.0",
+    "beautifulsoup4>=4.13",
+    "Markdown>=3.10",
+    "python-dotenv>=1.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/OpusProjects/confluence-md"
+Documentation = "https://github.com/OpusProjects/confluence-md/tree/main/docs"
+Changelog = "https://github.com/OpusProjects/confluence-md/blob/main/CHANGELOG.md"
+
+[project.scripts]
+confluence-md = "confluence_md:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+py-modules = ["confluence_md"]
+
+[tool.setuptools.dynamic]
+version = { attr = "confluence_md.__version__" }
