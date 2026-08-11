@@ -6,6 +6,10 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **`--version` flag** printing the tool version.
+
 ## [0.1.0] - 2026-08-12
 
 ### Added

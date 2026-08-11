@@ -39,6 +39,8 @@ from atlassian import Confluence
 from bs4 import BeautifulSoup, NavigableString, Tag
 from dotenv import load_dotenv
 
+__version__ = "0.1.0"
+
 # ---------------------------------------------------------------------------
 # Configuration -- loaded once at module level from the .env file
 # ---------------------------------------------------------------------------
@@ -743,6 +745,7 @@ def main() -> None:
     set_defaults to bind each subparser to its handler function.
     """
     parser = argparse.ArgumentParser(description="Manage Confluence pages from the command line.")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = parser.add_subparsers(required=True)
 
     # -- upload subcommand ---------------------------------------------
