@@ -56,18 +56,13 @@ class TestLists:
         assert "1. first" in out
 
     def test_nested(self):
-        out = confluence_storage_to_md(
-            "<ul><li>parent<ul><li>child</li></ul></li></ul>"
-        )
+        out = confluence_storage_to_md("<ul><li>parent<ul><li>child</li></ul></li></ul>")
         assert "- parent" in out
         assert "  - child" in out
 
     def test_multiple_nested_lists_in_one_item(self):
         out = confluence_storage_to_md(
-            "<ul><li>parent"
-            "<ul><li>bullet child</li></ul>"
-            "<ol><li>numbered child</li></ol>"
-            "</li></ul>"
+            "<ul><li>parent<ul><li>bullet child</li></ul><ol><li>numbered child</li></ol></li></ul>"
         )
         assert "- parent" in out
         assert "  - bullet child" in out
@@ -87,10 +82,7 @@ class TestMacros:
         assert 'print("hi")' in out
 
     def test_toc_macro_builds_anchor_links(self):
-        storage = (
-            '<ac:structured-macro ac:name="toc" />'
-            "<h1>Intro</h1><h2>Getting Started</h2>"
-        )
+        storage = '<ac:structured-macro ac:name="toc" /><h1>Intro</h1><h2>Getting Started</h2>'
         out = confluence_storage_to_md(storage)
         assert "- [Intro](#intro)" in out
         assert "  - [Getting Started](#getting-started)" in out
@@ -124,8 +116,6 @@ class TestPageLinks:
         assert "ac:link" not in out
 
     def test_falls_back_to_page_title(self):
-        storage = (
-            '<p>see <ac:link><ri:page ri:content-title="Target Page" /></ac:link></p>'
-        )
+        storage = '<p>see <ac:link><ri:page ri:content-title="Target Page" /></ac:link></p>'
         out = confluence_storage_to_md(storage)
         assert "Target Page" in out

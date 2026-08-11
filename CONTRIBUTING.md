@@ -33,8 +33,9 @@ gh pr create --base main
 Every PR must pass CI (run the same checks locally before pushing):
 
 ```bash
-pip install -r src/requirements.txt pytest
-python -m py_compile src/confluence_md.py
+pip install -r src/requirements.txt pytest ruff
+ruff check src tests
+ruff format --check src tests
 python -m pytest tests/
 ```
 

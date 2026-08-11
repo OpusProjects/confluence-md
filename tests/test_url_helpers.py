@@ -2,7 +2,7 @@
 
 import pytest
 
-from confluence_md import page_id_from_url, space_key_from_url, _heading_slug
+from confluence_md import _heading_slug, page_id_from_url, space_key_from_url
 
 
 class TestPageIdFromUrl:

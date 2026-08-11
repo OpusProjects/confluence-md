@@ -23,21 +23,21 @@ Usage::
 # ---------------------------------------------------------------------------
 # Standard library imports
 # ---------------------------------------------------------------------------
+import argparse
 import html
 import os
 import re
 import sys
-import argparse
 from pathlib import Path
 from typing import Any
 
 # ---------------------------------------------------------------------------
 # Third-party imports
 # ---------------------------------------------------------------------------
-from dotenv import load_dotenv
-from atlassian import Confluence
 import markdown
+from atlassian import Confluence
 from bs4 import BeautifulSoup, NavigableString, Tag
+from dotenv import load_dotenv
 
 # ---------------------------------------------------------------------------
 # Configuration -- loaded once at module level from the .env file
@@ -209,6 +209,7 @@ def md_to_confluence_storage(md_text: str) -> str:
         A string of Confluence storage-format XHTML, ready to be passed
         to the create_page or update_page API calls.
     """
+
     # -- Step 1: Pre-process strikethrough syntax -----------------------
     # python-markdown has no built-in ~~text~~ support, so we convert it
     # to raw <del> HTML before the markdown parser runs. We must skip
@@ -226,6 +227,7 @@ def md_to_confluence_storage(md_text: str) -> str:
                         spans[j] = re.sub(r"~~(.+?)~~", r"<del>\1</del>", span)
                 parts[i] = "".join(spans)
         return "".join(parts)
+
     md_text = _replace_strikethrough(md_text)
 
     # -- Step 2: Markdown --> HTML --------------------------------------
@@ -272,11 +274,11 @@ def md_to_confluence_storage(md_text: str) -> str:
         if code and code.get("class"):
             for cls in code["class"]:
                 if cls.startswith("language-"):
-                    lang = html.escape(cls[len("language-"):])
+                    lang = html.escape(cls[len("language-") :])
                     break
 
         # Get the raw code text from <code> if present, otherwise from <pre>.
-        code_text = (code.get_text() if code else pre.get_text())
+        code_text = code.get_text() if code else pre.get_text()
 
         # Escape the CDATA end marker so it does not prematurely close
         # the CDATA section inside the Confluence macro body.
@@ -287,7 +289,7 @@ def md_to_confluence_storage(md_text: str) -> str:
         macros[placeholder] = (
             f'<ac:structured-macro ac:name="code">'
             f'<ac:parameter ac:name="language">{lang}</ac:parameter>'
-            f'<ac:plain-text-body><![CDATA[{code_text}]]></ac:plain-text-body>'
+            f"<ac:plain-text-body><![CDATA[{code_text}]]></ac:plain-text-body>"
             f"</ac:structured-macro>"
         )
         pre.replace_with(placeholder)
@@ -489,8 +491,8 @@ def confluence_storage_to_md(storage_html: str) -> str:
         tag.decompose()
 
     # -- Step 6: Walk top-level elements and convert to Markdown -------
-    lines = []       # Accumulates output Markdown lines.
-    headings = []    # Collects (level, text) tuples for TOC generation.
+    lines = []  # Accumulates output Markdown lines.
+    headings = []  # Collects (level, text) tuples for TOC generation.
 
     for el in soup.children:
         tag = getattr(el, "name", None)
@@ -538,8 +540,10 @@ def confluence_storage_to_md(storage_html: str) -> str:
                 # Convert each cell's content to inline Markdown.
                 # Escape pipe chars and newlines so they don't break
                 # the Markdown table row structure.
-                cells = [_inline_md(c).strip().replace("\n", " ").replace("|", "\\|")
-                         for c in row.find_all(["th", "td"])]
+                cells = [
+                    _inline_md(c).strip().replace("\n", " ").replace("|", "\\|")
+                    for c in row.find_all(["th", "td"])
+                ]
                 lines.append("| " + " | ".join(cells) + " |")
 
                 # Always emit a separator after the first row. Markdown
@@ -569,7 +573,9 @@ def confluence_storage_to_md(storage_html: str) -> str:
         for level, heading_text in headings:
             # Indent by heading level (h1 = no indent, h2 = 2 spaces, etc.)
             # and generate a Markdown link to the heading anchor.
-            toc_lines.append("  " * (level - 1) + f"- [{heading_text}](#{_heading_slug(heading_text)})")
+            toc_lines.append(
+                "  " * (level - 1) + f"- [{heading_text}](#{_heading_slug(heading_text)})"
+            )
         result = result.replace("\x00TOC\x00", "\n".join(toc_lines))
     return result
 
@@ -610,7 +616,8 @@ def cmd_upload(args) -> None:
     storage_body = md_to_confluence_storage(read_md(args.file))
 
     # Create the page via the Confluence REST API.
-    result = api(client.create_page,
+    result = api(
+        client.create_page,
         space=space_key,
         title=args.title,
         body=storage_body,
@@ -656,7 +663,8 @@ def cmd_edit(args) -> None:
     storage_body = md_to_confluence_storage(read_md(args.file))
 
     # Push the new content as the next version of the page.
-    api(client.update_page,
+    api(
+        client.update_page,
         page_id=page_id,
         title=title,
         body=storage_body,
@@ -734,9 +742,7 @@ def main() -> None:
     own set of positional and optional arguments. Uses argparse
     set_defaults to bind each subparser to its handler function.
     """
-    parser = argparse.ArgumentParser(
-        description="Manage Confluence pages from the command line."
-    )
+    parser = argparse.ArgumentParser(description="Manage Confluence pages from the command line.")
     sub = parser.add_subparsers(required=True)
 
     # -- upload subcommand ---------------------------------------------
