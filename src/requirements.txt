@@ -1,0 +1,4 @@
+atlassian-python-api
+python-dotenv
+markdown
+beautifulsoup4
