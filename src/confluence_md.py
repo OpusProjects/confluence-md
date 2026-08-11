@@ -427,11 +427,13 @@ def confluence_storage_to_md(storage_html: str) -> str:
            (resolved later in cmd_download with real child page links).
         4. Replace internal page links (ac:link) with their visible text
            so the link label survives the cleanup step.
-        5. Decompose (remove) all remaining ac: and ri: namespaced
+        5. Replace panel macros (info, note, warning, tip, panel) with
+           blockquotes carrying a bold label, so their content survives.
+        6. Decompose (remove) all remaining ac: and ri: namespaced
            elements that have no Markdown equivalent.
-        6. Walk top-level elements and convert each to Markdown:
+        7. Walk top-level elements and convert each to Markdown:
            headings, paragraphs, lists, tables, blockquotes, hr, etc.
-        7. If a TOC placeholder is present, build the table of contents
+        8. If a TOC placeholder is present, build the table of contents
            from the collected headings and substitute it in.
 
     Args:
@@ -485,14 +487,45 @@ def confluence_storage_to_md(storage_html: str) -> str:
             text = ref.get("ri:content-title", "") if ref else ""
         link.replace_with(soup.new_string(text))
 
-    # -- Step 5: Remove all remaining Confluence-specific elements -----
+    # -- Step 5: Convert panel macros to blockquotes -------------------
+    # Info / Note / Warning / Tip / Panel macros have no Markdown
+    # equivalent. Degrade each to a blockquote with a bold label so the
+    # content survives the download instead of being silently lost.
+    panel_names = ["info", "note", "warning", "tip", "panel"]
+    for macro in soup.find_all("ac:structured-macro", attrs={"ac:name": panel_names}):
+        # Label: the panel's title parameter if set, else the macro kind.
+        kind = macro.get("ac:name", "note").capitalize()
+        title_tag = macro.find("ac:parameter", attrs={"ac:name": "title"})
+        label = title_tag.get_text(strip=True) if title_tag else kind
+        body = macro.find("ac:rich-text-body")
+
+        strong = soup.new_tag("strong")
+        strong.string = f"{label}:"
+        bq = soup.new_tag("blockquote")
+
+        # Prepend the label inside the first body paragraph when there is
+        # one, so it renders as "> **Note:** text" on a single line.
+        first_p = body.find("p", recursive=False) if body else None
+        if first_p is not None:
+            first_p.insert(0, soup.new_string(" "))
+            first_p.insert(0, strong)
+        else:
+            label_p = soup.new_tag("p")
+            label_p.append(strong)
+            bq.append(label_p)
+        if body:
+            for child in list(body.children):
+                bq.append(child.extract())
+        macro.replace_with(bq)
+
+    # -- Step 6: Remove all remaining Confluence-specific elements -----
     # ac: elements are structured macros and their sub-elements.
     # ri: elements are resource identifiers (e.g. for attachments).
     # Neither has a Markdown equivalent.
     for tag in soup.find_all(re.compile(r"^(ac|ri):")):
         tag.decompose()
 
-    # -- Step 6: Walk top-level elements and convert to Markdown -------
+    # -- Step 7: Walk top-level elements and convert to Markdown -------
     lines = []  # Accumulates output Markdown lines.
     headings = []  # Collects (level, text) tuples for TOC generation.
 
@@ -556,7 +589,13 @@ def confluence_storage_to_md(storage_html: str) -> str:
 
         # --- Blockquotes ---
         elif tag == "blockquote":
-            bq = _inline_md(el).strip()
+            # Render each paragraph child on its own quoted line; fall
+            # back to inline conversion for quotes with bare text.
+            paragraphs = el.find_all("p", recursive=False)
+            if paragraphs:
+                bq = "\n".join(_inline_md(p).strip() for p in paragraphs)
+            else:
+                bq = _inline_md(el).strip()
             # Prefix every line with "> " for Markdown blockquote syntax.
             lines.append("\n".join(f"> {line}" for line in bq.split("\n")) + "\n")
 
@@ -565,7 +604,7 @@ def confluence_storage_to_md(storage_html: str) -> str:
             # Extract whatever inline text we can and keep it.
             lines.append(_inline_md(el).strip())
 
-    # -- Step 7: Generate the Table of Contents ------------------------
+    # -- Step 8: Generate the Table of Contents ------------------------
     # If a TOC macro was found, build a nested list of anchor links
     # from the headings collected during the element walk, then swap
     # it in for the null-byte placeholder.

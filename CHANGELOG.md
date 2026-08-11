@@ -9,6 +9,10 @@ project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - **`--version` flag** printing the tool version.
+- **Panel conversion on download** — Info / Note / Warning / Tip / Panel
+  macros become blockquotes with a bold label (previously their content was
+  lost). Multi-paragraph blockquotes now also render one quoted line per
+  paragraph.
 
 ## [0.1.0] - 2026-08-12
 

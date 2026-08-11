@@ -8,6 +8,7 @@ Every element listed below converts in both directions (upload and download).
 - [Tables](#tables)
 - [Table of Contents — `[TOC]`](#table-of-contents--toc)
 - [Child Pages — `[CHILD_PAGES]`](#child-pages--child_pages)
+- [Panels (download only)](#panels-download-only)
 - [Known limitations](#known-limitations)
 
 ## Formatting
@@ -97,6 +98,19 @@ pages:
 
 To re-upload and keep the dynamic macro, replace the links with `[CHILD_PAGES]`.
 
+## Panels (download only)
+
+Confluence Info / Note / Warning / Tip / Panel macros have no Markdown
+equivalent, so on download they degrade to a blockquote with a bold label —
+the panel's own title if it has one, otherwise its kind:
+
+```markdown
+> **Warning:** this action cannot be undone.
+```
+
+This direction is one-way: uploading the blockquote produces a regular
+Confluence blockquote, not a panel.
+
 ## Known limitations
 
 Some Confluence elements have no Markdown equivalent and degrade or disappear
@@ -104,10 +118,10 @@ during conversion:
 
 - **Images and attachments** are not converted. Confluence image macros are
   stripped on download.
-- **Info / Note / Warning / Tip panels** are stripped on download. Their text
-  content is lost.
-- **Confluence-specific macros** (other than `code`, `toc`, `children`) are
-  stripped on download.
+- **Info / Note / Warning / Tip panels** become plain blockquotes on
+  download; re-uploading does not restore the colored panel.
+- **Confluence-specific macros** (other than `code`, `toc`, `children` and
+  the panel macros) are stripped on download.
 - **Internal page links** (links to other Confluence pages) are converted to
   plain text on download — the link label survives, the target does not.
 - **Nested block elements inside blockquotes** (e.g. lists, tables) are
