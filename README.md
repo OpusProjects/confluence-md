@@ -23,6 +23,7 @@ and pushed back without losing structure.
 - **Code language preserved**: fenced blocks map to the Confluence `code` macro in both directions
 - **Table of Contents**: `[TOC]` becomes the TOC macro on upload, anchor links on download
 - **Child pages**: `[CHILD_PAGES]` becomes the Children macro on upload, page links on download
+- **Images**: local images upload as attachments; page images download into a folder next to the file
 - **Version history preserved**: `edit` pushes a new page version, never destroys history
 - **Collision safety**: `upload` refuses to shadow an existing page title and points you to `edit`
 - **Zero infrastructure**: one Python file, four pip dependencies, credentials in a local `.env`

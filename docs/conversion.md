@@ -8,6 +8,7 @@ Every element listed below converts in both directions (upload and download).
 - [Tables](#tables)
 - [Table of Contents — `[TOC]`](#table-of-contents--toc)
 - [Child Pages — `[CHILD_PAGES]`](#child-pages--child_pages)
+- [Images](#images)
 - [Panels (download only)](#panels-download-only)
 - [Known limitations](#known-limitations)
 
@@ -98,6 +99,28 @@ pages:
 
 To re-upload and keep the dynamic macro, replace the links with `[CHILD_PAGES]`.
 
+## Images
+
+Images convert in both directions, with local files travelling as page
+attachments:
+
+**Upload:** `![alt](path/to/image.png)` with a local path uploads the file as
+a page attachment and embeds it with the Confluence image macro. Relative
+paths are resolved against the Markdown file's directory; missing files are
+skipped with a warning. External images (`![alt](https://...)`) are embedded
+by URL without uploading anything.
+
+**Download:** images backed by page attachments are saved into a
+`<name>_attachments/` folder next to the output file, and the Markdown links
+point there:
+
+```markdown
+![diagram](My_Page_attachments/diagram.png)
+```
+
+External images keep their URL. A download → upload round trip re-attaches
+the same files.
+
 ## Panels (download only)
 
 Confluence Info / Note / Warning / Tip / Panel macros have no Markdown
@@ -116,8 +139,8 @@ Confluence blockquote, not a panel.
 Some Confluence elements have no Markdown equivalent and degrade or disappear
 during conversion:
 
-- **Images and attachments** are not converted. Confluence image macros are
-  stripped on download.
+- **Non-image attachments** (PDFs, archives, ...) are not downloaded; only
+  attachments referenced by an image macro are fetched.
 - **Info / Note / Warning / Tip panels** become plain blockquotes on
   download; re-uploading does not restore the colored panel.
 - **Confluence-specific macros** (other than `code`, `toc`, `children` and

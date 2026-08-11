@@ -11,6 +11,10 @@ project adheres to [Semantic Versioning](https://semver.org/).
 - **`--version` flag** printing the tool version.
 - **Installable package** — `pip install .` now provides a `confluence-md`
   command on the PATH.
+- **Image support** — local images referenced in Markdown are uploaded as
+  page attachments and embedded; on download, attachment-backed images are
+  saved into a `<name>_attachments/` folder and linked from the Markdown.
+  External image URLs are embedded/kept without transfer.
 - **Panel conversion on download** — Info / Note / Warning / Tip / Panel
   macros become blockquotes with a bold label (previously their content was
   lost). Multi-paragraph blockquotes now also render one quoted line per

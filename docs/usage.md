@@ -100,6 +100,9 @@ python src/confluence_md.py download <page_url> [output.md]
 | `page_url` | Yes | URL of the Confluence page to download |
 | `output.md` | No | Output file path. Defaults to the page title with spaces replaced by underscores |
 
+Images embedded from page attachments are saved into a `<name>_attachments/`
+folder next to the output file (created only when the page has such images).
+
 **Examples:**
 
 ```bash
