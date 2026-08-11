@@ -20,10 +20,13 @@ jobs:
           cache-dependency-path: src/requirements.txt
 
       - name: Install dependencies
-        run: pip install -r src/requirements.txt pytest
+        run: pip install -r src/requirements.txt pytest ruff
 
-      - name: Compile check
-        run: python -m py_compile src/confluence_md.py
+      - name: Lint
+        run: ruff check src tests
+
+      - name: Format check
+        run: ruff format --check src tests
 
       - name: Run tests
         run: python -m pytest tests/ -v
