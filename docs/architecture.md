@@ -11,6 +11,8 @@ substitution, version markers, tree state — work the way they do.
 - [Attachments](#attachments)
 - [Error handling](#error-handling)
 
+---
+
 ## Module layout
 
 Everything lives in `src/confluence_md.py`, grouped into four sections that
@@ -25,6 +27,8 @@ read top to bottom:
    `_inline_md` / `_render_list` renderers.
 4. **CLI** — one `cmd_*` function per subcommand, the tree-sync helpers
    (`download_page`, `upload_tree`, `sync_file`), and `main()`.
+
+---
 
 ## The two conversion pipelines
 
@@ -47,6 +51,8 @@ The project rule that keeps these honest: **every element one pipeline
 learns to produce, the other must learn to parse** — a page must survive
 download → upload without losing structure (see
 [CONTRIBUTING.md](../CONTRIBUTING.md)).
+
+---
 
 ## The placeholder mechanism
 
@@ -71,6 +77,8 @@ The download pipeline uses the same trick once, for `[TOC]`: the macro is
 replaced with `\x00TOC\x00` early, headings are collected during the element
 walk, and the placeholder is swapped for the generated anchor list at the end.
 
+---
+
 ## Version markers
 
 Every downloaded file starts with one line of state:
@@ -90,6 +98,8 @@ serves two purposes:
 
 Markers are always stripped before conversion, so they never appear in page
 content.
+
+---
 
 ## Tree sync
 
@@ -111,6 +121,8 @@ then create under the parent. The leading `# h1` becomes the page title and
 is removed from the body so it is not duplicated under Confluence's own
 title rendering.
 
+---
+
 ## Attachments
 
 Local images referenced in Markdown are collected by the upload pipeline
@@ -119,6 +131,8 @@ after the page exists — attachment upload needs a page ID, so it can never
 happen during conversion. On download, the converter only *names* the
 attachment folder (`attachment_prefix`); `download_page` fetches the
 attachments the links actually reference, matching by filename.
+
+---
 
 ## Error handling
 
