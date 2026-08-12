@@ -9,6 +9,7 @@ Every element listed below converts in both directions (upload and download).
 - [Table of Contents — `[TOC]`](#table-of-contents--toc)
 - [Child Pages — `[CHILD_PAGES]`](#child-pages--child_pages)
 - [Images](#images)
+- [Task lists](#task-lists)
 - [Panels](#panels)
 - [Known limitations](#known-limitations)
 
@@ -120,6 +121,19 @@ point there:
 
 External images keep their URL. A download → upload round trip re-attaches
 the same files.
+
+## Task lists
+
+Markdown checkbox lists map to Confluence action-item task lists and back,
+including the checked state and inline formatting in the item text:
+
+```markdown
+- [ ] open task
+- [x] completed task
+```
+
+A list converts as a task list only when **every** item starts with a
+checkbox; lists mixing checkbox and plain items stay regular bullet lists.
 
 ## Panels
 
