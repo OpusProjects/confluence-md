@@ -9,6 +9,8 @@ dependencies, generate an API token, and store the credentials in a `.env` file.
 - [2. Find your Confluence URL](#2-find-your-confluence-url)
 - [3. Set up the `.env` file](#3-set-up-the-env-file)
 
+---
+
 ## Prerequisites
 
 The tool only needs a recent Python and its package manager; everything else
@@ -16,6 +18,8 @@ is installed in the next step.
 
 - Python 3.10+
 - pip
+
+---
 
 ## Installation
 
@@ -36,6 +40,8 @@ pip install .
 confluence-md --version
 ```
 
+---
+
 ## 1. Create an Atlassian API token
 
 The script authenticates with an API token rather than your password.
@@ -47,6 +53,8 @@ Atlassian Cloud does **not** allow authentication with your regular password.
 4. Give it a descriptive label (e.g. `confluence-md`)
 5. Click **Create** and **copy the token immediately** (it will not be shown again)
 
+---
+
 ## 2. Find your Confluence URL
 
 The base URL identifies your organisation's Confluence Cloud instance and
@@ -57,6 +65,8 @@ https://<your-org>.atlassian.net/wiki
 ```
 
 You can find it in your browser address bar when you open Confluence.
+
+---
 
 ## 3. Set up the `.env` file
 

@@ -13,6 +13,8 @@ Every element listed below converts in both directions (upload and download).
 - [Panels](#panels)
 - [Known limitations](#known-limitations)
 
+---
+
 ## Formatting
 
 Inline styles map one-to-one between Markdown syntax and Confluence HTML tags:
@@ -25,6 +27,8 @@ Inline styles map one-to-one between Markdown syntax and Confluence HTML tags:
 | `` `inline code` `` | `inline code` (`<code>`) | both |
 | `[text](url)` | link (`<a href="url">`) | both |
 | `  \n` (two trailing spaces) | line break (`<br>`) | both |
+
+---
 
 ## Block elements
 
@@ -39,6 +43,8 @@ Structural elements keep their shape in both directions:
 | `1. item` | ordered list (`<ol>`) | both |
 | indented sub-items | nested lists | both |
 
+---
+
 ## Code blocks
 
 Fenced code blocks keep their content and language across the round trip:
@@ -52,6 +58,8 @@ def hello():
 
 Converts to / from the Confluence `code` macro with `language=python`.
 The language tag is preserved in both directions.
+
+---
 
 ## Tables
 
@@ -69,6 +77,8 @@ links) inside cells is preserved. On download, pipe characters (`|`) inside
 cells are escaped and line breaks are replaced with spaces so they cannot
 break the Markdown table structure.
 
+---
+
 ## Table of Contents — `[TOC]`
 
 **Upload:** A standalone `[TOC]` line in your Markdown becomes the Confluence
@@ -85,6 +95,8 @@ break the Markdown table structure.
 
 Each link points to the corresponding `#heading-slug` within the Markdown file.
 
+---
+
 ## Child Pages — `[CHILD_PAGES]`
 
 **Upload:** A standalone `[CHILD_PAGES]` line in your Markdown becomes the
@@ -99,6 +111,8 @@ pages:
 ```
 
 To re-upload and keep the dynamic macro, replace the links with `[CHILD_PAGES]`.
+
+---
 
 ## Images
 
@@ -122,6 +136,8 @@ point there:
 External images keep their URL. A download → upload round trip re-attaches
 the same files.
 
+---
+
 ## Task lists
 
 Markdown checkbox lists map to Confluence action-item task lists and back,
@@ -134,6 +150,8 @@ including the checked state and inline formatting in the item text:
 
 A list converts as a task list only when **every** item starts with a
 checkbox; lists mixing checkbox and plain items stay regular bullet lists.
+
+---
 
 ## Panels
 
@@ -149,6 +167,8 @@ On upload, a blockquote starting with `**Info:**`, `**Note:**`,
 `**Warning:**` or `**Tip:**` is restored to the matching panel macro.
 Blockquotes with any other label (e.g. a custom panel title like
 `**Danger Zone:**`) stay regular blockquotes.
+
+---
 
 ## Known limitations
 
