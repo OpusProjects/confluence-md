@@ -30,6 +30,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote, unquote
 
 # ---------------------------------------------------------------------------
 # Third-party imports
@@ -538,7 +539,9 @@ def _render_list(el, indent: int = 0) -> list[str]:
     return lines
 
 
-def confluence_storage_to_md(storage_html: str, attachment_prefix: str = "") -> str:
+def confluence_storage_to_md(
+    storage_html: str, attachment_prefix: str = "", resolve_page_links: bool = False
+) -> str:
     """Convert Confluence storage-format XHTML to a Markdown string.
 
     The conversion pipeline is:
@@ -549,7 +552,10 @@ def confluence_storage_to_md(storage_html: str, attachment_prefix: str = "") -> 
         3. Replace the "children" macro with a [CHILD_PAGES] marker
            (resolved later in cmd_download with real child page links).
         4. Replace internal page links (ac:link) with their visible text
-           so the link label survives the cleanup step.
+           so the link label survives the cleanup step. With
+           resolve_page_links, page links become confluence-page://
+           placeholder links instead, resolved by the recursive download
+           into relative file links.
         5. Replace panel macros (info, note, warning, tip, panel) with
            blockquotes carrying a bold label, so their content survives.
         6. Replace images (ac:image) with Markdown image syntax:
@@ -570,6 +576,10 @@ def confluence_storage_to_md(storage_html: str, attachment_prefix: str = "") -> 
         attachment_prefix: Path prefix (e.g. "My_Page_attachments/")
             prepended to attachment filenames in image links. The caller
             downloads the attachment files to that location.
+        resolve_page_links: Emit page links as confluence-page://<title>
+            placeholder links instead of plain text. Used by recursive
+            downloads, which rewrite the placeholders into relative file
+            links once the whole tree is on disk.
 
     Returns:
         A Markdown string representing the page content.
@@ -607,16 +617,23 @@ def confluence_storage_to_md(storage_html: str, attachment_prefix: str = "") -> 
     # -- Step 4: Convert internal page links to their visible text -----
     # <ac:link> wraps a resource identifier (ri:page, ri:user, ...) and
     # optionally a link body with the display text. A page ID is not
-    # available here without extra API calls, so the link degrades to
-    # its label rather than vanishing with the rest of the ac: cleanup.
+    # available here without extra API calls, so by default the link
+    # degrades to its label rather than vanishing with the ac: cleanup.
+    # With resolve_page_links, page links become placeholder links that
+    # the recursive download rewrites into relative file links.
     for link in soup.find_all("ac:link"):
         body = link.find("ac:link-body") or link.find("ac:plain-text-link-body")
         text = body.get_text() if body else ""
+        page_ref = link.find("ri:page")
+        target_title = page_ref.get("ri:content-title", "") if page_ref else ""
         if not text:
-            # No explicit body: fall back to the linked page's title.
-            ref = link.find(["ri:page", "ri:attachment", "ri:user"])
+            # No explicit body: fall back to the linked resource's title.
+            ref = page_ref or link.find(["ri:attachment", "ri:user"])
             text = ref.get("ri:content-title", "") if ref else ""
-        link.replace_with(soup.new_string(text))
+        if resolve_page_links and target_title:
+            link.replace_with(soup.new_string(f"[{text}](confluence-page://{quote(target_title)})"))
+        else:
+            link.replace_with(soup.new_string(text))
 
     # -- Step 5: Convert panel macros to blockquotes -------------------
     # Info / Note / Warning / Tip / Panel macros have no Markdown
@@ -1114,21 +1131,60 @@ def get_child_pages(client: Confluence, page_id: str) -> list[dict]:
         start += limit
 
 
-def download_page(client: Confluence, page: dict, out_path: Path, recursive: bool = False) -> None:
+def _rewrite_page_links(tree: dict) -> None:
+    """Resolve confluence-page:// placeholders in a downloaded tree.
+
+    Placeholder links whose target title was downloaded become relative
+    file links; links to pages outside the tree fall back to their label.
+
+    Args:
+        tree: Dict with "paths" (title -> Path of the written file) and
+            "files" (all written Paths), built during the recursion.
+    """
+    placeholder_re = re.compile(r"\[([^\]]*)\]\(confluence-page://([^)]+)\)")
+    for md_file in tree["files"]:
+        text = md_file.read_text(encoding="utf-8")
+
+        def resolve(m, _from=md_file):
+            target = tree["paths"].get(unquote(m.group(2)))
+            if target is None:
+                return m.group(1)  # outside the tree: keep the label only
+            rel = Path(os.path.relpath(target, start=_from.parent)).as_posix()
+            return f"[{m.group(1)}]({rel})"
+
+        new_text = placeholder_re.sub(resolve, text)
+        if new_text != text:
+            md_file.write_text(new_text, encoding="utf-8")
+
+
+def download_page(
+    client: Confluence,
+    page: dict,
+    out_path: Path,
+    recursive: bool = False,
+    _tree: dict | None = None,
+) -> None:
     """Write one fetched Confluence page to disk as Markdown.
 
     Converts the page body, resolves [CHILD_PAGES] markers into links,
     downloads referenced image attachments into a "<name>_attachments/"
     folder, and writes the file with a version marker. With recursive=True,
     child pages are downloaded into a "<name>/" folder next to the file,
-    each going through this same function.
+    each going through this same function; links between pages of the
+    downloaded tree are rewritten into relative file links at the end.
 
     Args:
         client: Authenticated Confluence client.
         page: Page resource dict (expanded with body.storage, space, version).
         out_path: Path of the Markdown file to write.
         recursive: Also download all descendant pages.
+        _tree: Internal recursion state (title -> path map and file list);
+            leave unset when calling.
     """
+    is_root = recursive and _tree is None
+    if is_root:
+        _tree = {"paths": {}, "files": []}
+
     title = page["title"]
     page_id = page["id"]
     space_key = page["space"]["key"]
@@ -1136,9 +1192,13 @@ def download_page(client: Confluence, page: dict, out_path: Path, recursive: boo
     att_dir = out_path.with_name(f"{out_path.stem}_attachments")
 
     # Convert the Confluence storage format XHTML to Markdown. Image
-    # links to attachments point into the attachments folder.
+    # links to attachments point into the attachments folder. In
+    # recursive mode, page links become placeholders resolved after the
+    # whole tree is on disk.
     md_text = confluence_storage_to_md(
-        page["body"]["storage"]["value"], attachment_prefix=f"{att_dir.name}/"
+        page["body"]["storage"]["value"],
+        attachment_prefix=f"{att_dir.name}/",
+        resolve_page_links=recursive,
     )
 
     # Fetch the child page list once if anything below needs it.
@@ -1176,6 +1236,11 @@ def download_page(client: Confluence, page: dict, out_path: Path, recursive: boo
     out_path.write_text(f"{marker}# {title}\n\n{md_text}", encoding="utf-8")
     print(f"Downloaded '{title}' -> {out_path}")
 
+    # Track written files so page links can be resolved tree-wide.
+    if recursive:
+        _tree["paths"][title] = out_path
+        _tree["files"].append(out_path)
+
     # Recurse into child pages, mirroring the page tree as a folder tree.
     if recursive and children:
         sub_dir = out_path.with_name(out_path.stem)
@@ -1185,7 +1250,11 @@ def download_page(client: Confluence, page: dict, out_path: Path, recursive: boo
                 client.get_page_by_id, child["id"], expand="body.storage,space,version"
             )
             child_path = sub_dir / f"{safe_filename(child_page['title'])}.md"
-            download_page(client, child_page, child_path, recursive=True)
+            download_page(client, child_page, child_path, recursive=True, _tree=_tree)
+
+    # Once the whole tree is on disk, resolve inter-page links.
+    if is_root:
+        _rewrite_page_links(_tree)
 
 
 def cmd_download(args) -> None:

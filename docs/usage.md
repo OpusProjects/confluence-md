@@ -125,7 +125,9 @@ The first line of the output file is a version marker comment
 uses it to detect concurrent changes, and strips it before uploading.
 
 With `--recursive`, each page's children are written into a folder named
-after the page, so the folder tree mirrors the Confluence page tree:
+after the page, so the folder tree mirrors the Confluence page tree.
+Confluence links between pages of the tree are rewritten as relative links
+between the Markdown files:
 
 ```
 Root_Page.md
