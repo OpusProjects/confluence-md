@@ -8,8 +8,9 @@ The script has three subcommands. `--` options are always optional modifiers.
 
 ```
 python src/confluence_md.py upload   <file.md> <parent_url> <title>
-python src/confluence_md.py edit     <file.md> <page_url>   [--title "..."]
-python src/confluence_md.py download <page_url>             [output.md]
+python src/confluence_md.py upload   <folder>  <parent_url> --recursive [--force]
+python src/confluence_md.py edit     <file.md> <page_url>   [--title "..."] [--force]
+python src/confluence_md.py download <page_url>             [output.md] [--recursive]
 ```
 
 ---
