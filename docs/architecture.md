@@ -1,7 +1,9 @@
 # Architecture
 
 How the single module is organised and why the non-obvious parts — placeholder
-substitution, version markers, tree state — work the way they do.
+substitution, version markers, tree state — work the way they do. Read this
+before changing either conversion pipeline, so the invariants the round-trip
+tests rely on stay intact.
 
 - [Module layout](#module-layout)
 - [The two conversion pipelines](#the-two-conversion-pipelines)
@@ -34,6 +36,8 @@ read top to bottom:
 
 Both pipelines are pure functions from string to string (plus optional
 collectors), which is what makes them unit-testable without any network.
+Every API call stays in the CLI layer, which passes strings in and writes
+the results out.
 
 **Upload** (`md_to_confluence_storage`): pre-process strikethrough (skipping
 code spans and fences), let python-markdown produce HTML, then walk the
@@ -105,7 +109,8 @@ content.
 
 Both directions mirror the same layout: `<name>.md` is a page, a sibling
 `<name>/` folder holds its children, `<name>_attachments/` holds its image
-attachments.
+attachments. Because the layouts match, whatever one direction writes, the
+other can consume unchanged.
 
 **Download** (`download_page`): recursion threads a `_tree` dict through the
 calls, recording `title → written path` for every page. Page links are

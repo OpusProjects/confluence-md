@@ -1,7 +1,8 @@
 # Configuration
 
 Everything needed to get from a fresh clone to a working setup: install the
-dependencies, generate an API token, and store the credentials in a `.env` file.
+dependencies, generate an API token, and store the credentials in a `.env`
+file. Each step takes a minute or two and only needs doing once per machine.
 
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
@@ -33,7 +34,8 @@ This installs the four dependencies: `atlassian-python-api`, `python-dotenv`,
 `markdown` and `beautifulsoup4`.
 
 Alternatively, install the project as a package to get a `confluence-md`
-command on your PATH (usable anywhere instead of `python src/confluence_md.py`):
+command on your PATH, which lets you run the tool from any directory instead
+of invoking `python src/confluence_md.py` from a repository checkout:
 
 ```bash
 pip install .
@@ -46,6 +48,8 @@ confluence-md --version
 
 The script authenticates with an API token rather than your password.
 Atlassian Cloud does **not** allow authentication with your regular password.
+Tokens can be revoked individually at any time, so create one dedicated to
+this tool.
 
 1. Go to [https://id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
 2. Log in with your Atlassian account
@@ -70,8 +74,9 @@ You can find it in your browser address bar when you open Confluence.
 
 ## 3. Set up the `.env` file
 
-The three credentials live in a `.env` file that the script loads at startup.
-Copy the template from the project root and fill in your values:
+The three credentials live in a `.env` file that the script loads at startup
+from the directory it runs in. Copy the template from the project root and
+fill in the three values collected in the previous steps:
 
 ```bash
 cp .env.example .env

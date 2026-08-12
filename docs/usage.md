@@ -17,8 +17,9 @@ python src/confluence_md.py download <page_url>             [output.md] [--recur
 
 ## `upload` — create a new child page
 
-Creates a new page as a child of the given parent. Aborts with an error if a
-page with the same title already exists in the space — use `edit` in that case.
+Creates a new page as a child of the given parent. Confluence requires titles
+to be unique within a space, so the command aborts with an error if a page
+with the same title already exists — use `edit` in that case.
 
 ```bash
 python src/confluence_md.py upload <file.md> <parent_url> <title>
@@ -51,7 +52,8 @@ python src/confluence_md.py upload release_notes.md \
 ```
 
 The parent URL is the page in Confluence under which the new page will appear.
-Open that page in your browser and copy the address bar URL.
+Open that page in your browser and copy the address bar URL — both the pretty
+`/spaces/.../pages/...` form and the `?pageId=...` form are accepted.
 
 ---
 
@@ -120,6 +122,7 @@ python src/confluence_md.py download <page_url> [output.md] [--recursive]
 
 Images embedded from page attachments are saved into a `<name>_attachments/`
 folder next to the output file (created only when the page has such images).
+External images referenced by URL are left as-is and never downloaded.
 
 The first line of the output file is a version marker comment
 (`<!-- confluence-md page_id=... version=... -->`). Leave it in place: `edit`

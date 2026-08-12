@@ -82,7 +82,8 @@ break the Markdown table structure.
 ## Table of Contents — `[TOC]`
 
 **Upload:** A standalone `[TOC]` line in your Markdown becomes the Confluence
-**Table of Contents macro**, which auto-generates a clickable TOC on the page.
+**Table of Contents macro**, which auto-generates a clickable TOC on the page
+and keeps itself up to date whenever the page's headings change.
 
 **Download:** The TOC macro becomes a list of anchor links to the page headings:
 
@@ -100,7 +101,8 @@ Each link points to the corresponding `#heading-slug` within the Markdown file.
 ## Child Pages — `[CHILD_PAGES]`
 
 **Upload:** A standalone `[CHILD_PAGES]` line in your Markdown becomes the
-Confluence **Children Display macro**, which auto-lists all child pages.
+Confluence **Children Display macro**, which auto-lists all child pages of
+the page and updates dynamically as children are added or removed.
 
 **Download:** The Children Display macro becomes a list of links to the child
 pages:
@@ -127,7 +129,7 @@ by URL without uploading anything.
 
 **Download:** images backed by page attachments are saved into a
 `<name>_attachments/` folder next to the output file, and the Markdown links
-point there:
+point there, so the images render correctly in any local Markdown preview:
 
 ```markdown
 ![diagram](My_Page_attachments/diagram.png)
@@ -141,7 +143,8 @@ the same files.
 ## Task lists
 
 Markdown checkbox lists map to Confluence action-item task lists and back,
-including the checked state and inline formatting in the item text:
+including the checked state and inline formatting in the item text, so a
+to-do list can be ticked off on either side and synced across:
 
 ```markdown
 - [ ] open task
@@ -149,7 +152,8 @@ including the checked state and inline formatting in the item text:
 ```
 
 A list converts as a task list only when **every** item starts with a
-checkbox; lists mixing checkbox and plain items stay regular bullet lists.
+checkbox; lists mixing checkbox and plain items stay regular bullet lists,
+so no list is ever converted half-way into a mix of tasks and text.
 
 ---
 

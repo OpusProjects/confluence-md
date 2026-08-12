@@ -11,7 +11,8 @@ Symptom first: find the error message the script printed, then apply the fix.
 ## Configuration and authentication
 
 Errors in this group appear before any page content is transferred — the
-script either refuses to start or Confluence refuses the credentials.
+script either refuses to start or Confluence refuses the credentials. Fixing
+them is always a matter of configuration, never of page content.
 
 | Error | Cause | Fix |
 |---|---|---|
@@ -25,6 +26,8 @@ script either refuses to start or Confluence refuses the credentials.
 
 Errors in this group mean the page you pointed at could not be resolved —
 either the URL was not understood or the page is not visible to your account.
+Check the URL in a browser first: if it does not open there, the tool cannot
+reach it either.
 
 | Error | Cause | Fix |
 |---|---|---|
