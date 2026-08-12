@@ -56,6 +56,9 @@ themselves, also exercise the one you touched against a real Confluence page
 
 ## Project rules
 
+The internals — pipelines, placeholder substitution, version markers, tree
+sync — are described in [docs/architecture.md](docs/architecture.md).
+
 1. **Conversion is symmetric.** Every element the Markdown → storage pipeline
    (`md_to_confluence_storage`) learns to produce, the storage → Markdown
    pipeline (`confluence_storage_to_md`) must learn to parse, and vice versa.

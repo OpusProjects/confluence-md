@@ -38,6 +38,7 @@ and pushed back without losing structure.
 
 | Document | What it covers |
 |---|---|
+| [Architecture](docs/architecture.md) | Module layout, the two pipelines, placeholders, version markers and tree sync |
 | [Configuration](docs/configuration.md) | Creating the API token, finding your base URL, and the `.env` file |
 | [Usage](docs/usage.md) | The three subcommands, every argument, examples and the download–edit–push workflow |
 | [Conversion](docs/conversion.md) | Element-by-element Markdown ↔ Confluence equivalences, and known limitations |
