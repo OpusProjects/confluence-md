@@ -17,6 +17,10 @@ project adheres to [Semantic Versioning](https://semver.org/).
   its descendants, mirroring the Confluence page tree as a folder tree.
 - **Task lists** — `- [ ]` / `- [x]` checkbox lists convert to Confluence
   action-item task lists and back, keeping the checked state.
+- **Recursive upload** — `upload --recursive <folder> <parent_url>` syncs a
+  folder of Markdown files as a page tree (the layout `download --recursive`
+  writes), creating or updating pages as needed with the same version guard
+  as `edit`.
 - **Installable package** — `pip install .` now provides a `confluence-md`
   command on the PATH.
 - **Image support** — local images referenced in Markdown are uploaded as
