@@ -228,10 +228,12 @@ def md_to_confluence_storage(md_text: str, image_paths: list[str] | None = None)
         5. Convert images (<img>) into Confluence image macros: external
            URLs become ri:url references, local paths become
            ri:attachment references (the caller uploads the files).
-        6. Convert blockquotes labeled **Info:**, **Note:**, **Warning:**
+        6. Convert task lists (- [ ] / - [x] items) into Confluence
+           ac:task-list macros with complete/incomplete statuses.
+        7. Convert blockquotes labeled **Info:**, **Note:**, **Warning:**
            or **Tip:** (the shape "download" produces for panels) back
            into the matching Confluence panel macro.
-        7. Substitute all placeholders back into the serialised HTML.
+        8. Substitute all placeholders back into the serialised HTML.
 
     Null-byte delimited placeholders are used because BeautifulSoup's
     html.parser serialiser mangles CDATA sections and ac: namespaced
@@ -355,7 +357,36 @@ def md_to_confluence_storage(md_text: str, image_paths: list[str] | None = None)
             )
         img.replace_with(placeholder)
 
-    # -- Step 6: Convert labeled blockquotes back to panel macros -------
+    # -- Step 6: Convert task lists to Confluence task-list macros ------
+    # python-markdown has no task-list support, so "- [ ] item" arrives
+    # as a list item whose text starts with the literal checkbox. A <ul>
+    # where every item has that shape becomes an ac:task-list macro.
+    checkbox_re = re.compile(r"^\[( |x|X)\]\s*")
+    for i, ul in enumerate(soup.find_all("ul")):
+        items = ul.find_all("li", recursive=False)
+        prefixes = []
+        for li in items:
+            first = li.contents[0] if li.contents else None
+            m = checkbox_re.match(str(first)) if isinstance(first, NavigableString) else None
+            prefixes.append(m)
+        if not items or not all(prefixes):
+            continue
+
+        tasks_xml = []
+        for li, m in zip(items, prefixes, strict=True):
+            # Strip the checkbox prefix, keep the rest (with formatting).
+            li.contents[0].replace_with(soup.new_string(str(li.contents[0])[m.end() :]))
+            status = "complete" if m.group(1).lower() == "x" else "incomplete"
+            body_html = "".join(str(c) for c in li.children).strip()
+            tasks_xml.append(
+                f"<ac:task><ac:task-status>{status}</ac:task-status>"
+                f"<ac:task-body><span>{body_html}</span></ac:task-body></ac:task>"
+            )
+        placeholder = f"\x00TASKLIST{i}\x00"
+        macros[placeholder] = f"<ac:task-list>{''.join(tasks_xml)}</ac:task-list>"
+        ul.replace_with(placeholder)
+
+    # -- Step 7: Convert labeled blockquotes back to panel macros -------
     # "download" degrades panels to blockquotes starting with a bold
     # label; recognise that shape and restore the panel macro so the
     # round trip preserves Info / Note / Warning / Tip panels.
@@ -385,10 +416,10 @@ def md_to_confluence_storage(md_text: str, image_paths: list[str] | None = None)
         )
         bq.replace_with(placeholder)
 
-    # -- Step 7: Serialise and substitute placeholders ------------------
+    # -- Step 8: Serialise and substitute placeholders ------------------
     # Reverse insertion order so containers inserted later (panels) land
     # in the result before the placeholders nested inside them (code
-    # blocks, images) are substituted.
+    # blocks, images, task lists) are substituted.
     result = str(soup)
     for placeholder, macro in reversed(macros.items()):
         result = result.replace(placeholder, macro)
@@ -524,12 +555,14 @@ def confluence_storage_to_md(storage_html: str, attachment_prefix: str = "") -> 
         6. Replace images (ac:image) with Markdown image syntax:
            attachment references point into attachment_prefix, external
            URL references keep their URL.
-        7. Decompose (remove) all remaining ac: and ri: namespaced
+        7. Replace task lists (ac:task-list) with Markdown checkbox
+           items (- [ ] / - [x]).
+        8. Decompose (remove) all remaining ac: and ri: namespaced
            elements that have no Markdown equivalent.
-        8. Walk top-level elements and convert each to Markdown:
+        9. Walk top-level elements and convert each to Markdown:
            headings, paragraphs, lists, tables, blockquotes, hr, etc.
-        9. If a TOC placeholder is present, build the table of contents
-           from the collected headings and substitute it in.
+        10. If a TOC placeholder is present, build the table of contents
+            from the collected headings and substitute it in.
 
     Args:
         storage_html: Raw Confluence storage-format XHTML string,
@@ -634,14 +667,27 @@ def confluence_storage_to_md(storage_html: str, attachment_prefix: str = "") -> 
         else:
             image.decompose()
 
-    # -- Step 7: Remove all remaining Confluence-specific elements -----
+    # -- Step 7: Convert task lists to Markdown checkbox items ---------
+    # Each ac:task becomes "- [ ]" or "- [x]" depending on its status,
+    # keeping the task body's inline formatting.
+    for task_list in soup.find_all("ac:task-list"):
+        task_lines = []
+        for task in task_list.find_all("ac:task", recursive=False):
+            status = task.find("ac:task-status")
+            done = status is not None and status.get_text(strip=True) == "complete"
+            body = task.find("ac:task-body")
+            text = _inline_md(body).strip() if body else ""
+            task_lines.append(f"- [{'x' if done else ' '}] {text}")
+        task_list.replace_with(soup.new_string("\n" + "\n".join(task_lines) + "\n"))
+
+    # -- Step 8: Remove all remaining Confluence-specific elements -----
     # ac: elements are structured macros and their sub-elements.
     # ri: elements are resource identifiers (e.g. for attachments).
     # Neither has a Markdown equivalent.
     for tag in soup.find_all(re.compile(r"^(ac|ri):")):
         tag.decompose()
 
-    # -- Step 8: Walk top-level elements and convert to Markdown -------
+    # -- Step 9: Walk top-level elements and convert to Markdown -------
     lines = []  # Accumulates output Markdown lines.
     headings = []  # Collects (level, text) tuples for TOC generation.
 
@@ -720,7 +766,7 @@ def confluence_storage_to_md(storage_html: str, attachment_prefix: str = "") -> 
             # Extract whatever inline text we can and keep it.
             lines.append(_inline_md(el).strip())
 
-    # -- Step 9: Generate the Table of Contents ------------------------
+    # -- Step 10: Generate the Table of Contents -----------------------
     # If a TOC macro was found, build a nested list of anchor links
     # from the headings collected during the element walk, then swap
     # it in for the null-byte placeholder.
