@@ -162,7 +162,9 @@ during conversion:
   are restored to panels).
 - **Confluence-specific macros** (other than `code`, `toc`, `children` and
   the panel macros) are stripped on download.
-- **Internal page links** (links to other Confluence pages) are converted to
-  plain text on download — the link label survives, the target does not.
+- **Internal page links** are converted to plain text on single-page
+  download. In `download --recursive`, links between pages of the downloaded
+  tree become relative file links; only links to pages outside the tree
+  degrade to plain text.
 - **Nested block elements inside blockquotes** (e.g. lists, tables) are
   flattened to inline text.

@@ -21,6 +21,9 @@ project adheres to [Semantic Versioning](https://semver.org/).
   folder of Markdown files as a page tree (the layout `download --recursive`
   writes), creating or updating pages as needed with the same version guard
   as `edit`.
+- **Internal links in recursive downloads** — links between pages of the
+  downloaded tree become relative links between the Markdown files instead
+  of degrading to plain text.
 - **Installable package** — `pip install .` now provides a `confluence-md`
   command on the PATH.
 - **Image support** — local images referenced in Markdown are uploaded as
