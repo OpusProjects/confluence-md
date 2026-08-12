@@ -25,6 +25,9 @@ project adheres to [Semantic Versioning](https://semver.org/).
   macros become blockquotes with a bold label (previously their content was
   lost). Multi-paragraph blockquotes now also render one quoted line per
   paragraph.
+- **Panel conversion on upload** — blockquotes labeled `**Info:**`,
+  `**Note:**`, `**Warning:**` or `**Tip:**` are restored to the matching
+  panel macro, making panels round-trip.
 
 ## [0.1.0] - 2026-08-12
 
