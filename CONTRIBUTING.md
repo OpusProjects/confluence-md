@@ -44,6 +44,16 @@ tests live in `tests/test_round_trip.py`. For changes to the subcommands
 themselves, also exercise the one you touched against a real Confluence page
 (a personal space works well as a sandbox).
 
+## Releasing
+
+1. Bump `__version__` in `src/confluence_md.py`.
+2. In `CHANGELOG.md`, move the `Unreleased` entries under a new
+   `## [x.y.z] - YYYY-MM-DD` heading.
+3. Open a PR titled `Release x.y.z` with just those changes.
+4. After the merge, tag the merge commit `vx.y.z` and push the tag —
+   the release workflow verifies the version, extracts the changelog
+   section and publishes the GitHub release automatically.
+
 ## Project rules
 
 1. **Conversion is symmetric.** Every element the Markdown → storage pipeline

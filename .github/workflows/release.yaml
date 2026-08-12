@@ -1,0 +1,41 @@
+name: confluence-md release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Verify tag matches __version__
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          CODE_VERSION="$(grep -oP '__version__ = "\K[^"]+' src/confluence_md.py)"
+          if [ "$VERSION" != "$CODE_VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match __version__ = $CODE_VERSION" >&2
+            exit 1
+          fi
+
+      - name: Extract changelog section
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\["ver"\\]" {flag=1; next}
+            /^## \[/ {flag=0}
+            flag' CHANGELOG.md > release_notes.md
+          if [ ! -s release_notes.md ]; then
+            echo "No CHANGELOG.md section found for version $VERSION" >&2
+            exit 1
+          fi
+          cat release_notes.md
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file release_notes.md
