@@ -56,12 +56,16 @@ python src/confluence_md.py edit <file.md> <page_url> [--title "New Title"]
 | `file.md` | Yes | Path to the local Markdown file whose content will replace the page body |
 | `page_url` | Yes | URL of the existing Confluence page to overwrite |
 | `--title` | No | Rename the page at the same time. If omitted, the existing title is kept |
+| `--force` | No | Overwrite even if the page changed on Confluence since it was downloaded |
 
 **Behaviour:**
 
 - The page history is preserved — the change appears as a new version.
 - The existing content is fully replaced. If you want to keep parts of it,
   download the page first, edit the Markdown, then run `edit`.
+- Files produced by `download` carry a version marker comment. If the page
+  has been edited on Confluence since your download, `edit` aborts instead of
+  overwriting those changes — re-download and merge, or pass `--force`.
 
 **Examples:**
 
@@ -102,6 +106,10 @@ python src/confluence_md.py download <page_url> [output.md]
 
 Images embedded from page attachments are saved into a `<name>_attachments/`
 folder next to the output file (created only when the page has such images).
+
+The first line of the output file is a version marker comment
+(`<!-- confluence-md page_id=... version=... -->`). Leave it in place: `edit`
+uses it to detect concurrent changes, and strips it before uploading.
 
 **Examples:**
 
