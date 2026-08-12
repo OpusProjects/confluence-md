@@ -21,10 +21,14 @@ and pushed back without losing structure.
 - **Three subcommands**: `upload` creates a page, `edit` replaces one, `download` saves it as Markdown
 - **Bidirectional conversion**: headings, tables, lists, blockquotes, code and formatting round-trip
 - **Code language preserved**: fenced blocks map to the Confluence `code` macro in both directions
+- **Task lists**: `- [ ]` / `- [x]` become Confluence action items and back, checked state kept
+- **Panels**: `**Note:**`-labeled blockquotes become Info/Note/Warning/Tip panels and back
 - **Table of Contents**: `[TOC]` becomes the TOC macro on upload, anchor links on download
 - **Child pages**: `[CHILD_PAGES]` becomes the Children macro on upload, page links on download
 - **Images**: local images upload as attachments; page images download into a folder next to the file
-- **Version history preserved**: `edit` pushes a new page version, never destroys history
+- **Tree sync**: `--recursive` uploads or downloads whole page trees as folders, links rewritten
+- **Edit safety**: `edit` refuses to overwrite pages changed since your download, unless `--force`
+- **Version history preserved**: every update is a new page version, history never destroyed
 - **Collision safety**: `upload` refuses to shadow an existing page title and points you to `edit`
 - **Zero infrastructure**: one Python file, four pip dependencies, credentials in a local `.env`
 
