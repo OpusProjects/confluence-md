@@ -815,6 +815,122 @@ def attach_local_images(
         print(f"Attached image: {path.name}")
 
 
+def split_leading_h1(md_text: str) -> tuple[str | None, str]:
+    """Split a leading "# Title" heading off a Markdown string.
+
+    "download" writes the page title as an h1 on the first content line;
+    recursive upload reads it back as the page title and removes it so
+    the heading is not duplicated inside the page body.
+
+    Args:
+        md_text: Markdown text (marker already stripped).
+
+    Returns:
+        A (title, remaining_text) tuple; title is None when the text does
+        not start with an h1 heading.
+    """
+    m = re.match(r"\s*#\s+(.+?)\s*\n+", md_text)
+    if not m:
+        return None, md_text
+    return m.group(1), md_text[m.end() :]
+
+
+def sync_file(
+    client: Confluence, md_file: Path, parent_id: str, space_key: str, force: bool
+) -> str | None:
+    """Create or update one Confluence page from a Markdown file.
+
+    The page title comes from the file's leading h1 heading (falling back
+    to the filename). Which page to touch is decided in order: a version
+    marker wins (the file was downloaded from that page), then an existing
+    page with the same title in the space, and otherwise a new child page
+    is created under parent_id. Marker version conflicts are skipped with
+    a warning unless force is set.
+
+    Args:
+        client: Authenticated Confluence client.
+        md_file: Path of the .md file to upload.
+        parent_id: Page ID the page belongs under when created.
+        space_key: Key of the target space.
+        force: Update even if the marker version does not match.
+
+    Returns:
+        The page ID the file maps to, or None when the file was skipped.
+    """
+    md_text, marker_page_id, marker_version = parse_version_marker(read_md(str(md_file)))
+    h1_title, md_text = split_leading_h1(md_text)
+    title = h1_title or md_file.stem.replace("_", " ")
+
+    # Decide the target page: version marker first, then title lookup.
+    page_id = None
+    if marker_page_id:
+        page = api(client.get_page_by_id, marker_page_id, expand="version")
+        current_version = page.get("version", {}).get("number")
+        if current_version is not None and current_version != marker_version and not force:
+            print(
+                f"WARNING: skipped '{md_file}': page changed on Confluence "
+                f"(version {marker_version} -> {current_version}). Use --force to overwrite."
+            )
+            return marker_page_id
+        page_id = marker_page_id
+    else:
+        existing = api(client.get_page_by_title, space_key, title)
+        if existing:
+            page_id = existing["id"]
+
+    # Convert the body, collecting local image paths for attachment.
+    image_paths: list[str] = []
+    storage_body = md_to_confluence_storage(md_text, image_paths)
+
+    if page_id:
+        api(
+            client.update_page,
+            page_id=page_id,
+            title=title,
+            body=storage_body,
+            representation="storage",
+        )
+        print(f"Updated '{title}' from {md_file}")
+    else:
+        result = api(
+            client.create_page,
+            space=space_key,
+            title=title,
+            body=storage_body,
+            parent_id=parent_id,
+            representation="storage",
+        )
+        page_id = result["id"]
+        print(f"Created '{title}' from {md_file}")
+
+    attach_local_images(client, page_id, str(md_file), image_paths)
+    return page_id
+
+
+def upload_tree(
+    client: Confluence, dir_path: Path, parent_id: str, space_key: str, force: bool
+) -> None:
+    """Upload a folder of Markdown files as a Confluence page tree.
+
+    Every "<name>.md" in dir_path becomes a page under parent_id; if a
+    sibling folder "<name>/" exists, its files become children of that
+    page, recursively -- the same layout "download --recursive" writes.
+    Attachment folders ("*_attachments") are not treated as page folders.
+
+    Args:
+        client: Authenticated Confluence client.
+        dir_path: Folder containing .md files.
+        parent_id: Page ID the folder's pages belong under.
+        space_key: Key of the target space.
+        force: Update even when a file's marker version does not match.
+    """
+    for md_file in sorted(dir_path.glob("*.md")):
+        page_id = sync_file(client, md_file, parent_id, space_key, force)
+        sub_dir = md_file.with_name(md_file.stem)
+        if page_id and sub_dir.is_dir():
+            upload_tree(client, sub_dir, page_id, space_key, force)
+
+
 def cmd_upload(args) -> None:
     """Create a new Confluence page from a local Markdown file.
 
@@ -823,17 +939,37 @@ def cmd_upload(args) -> None:
     space, the command aborts with an error and suggests using "edit".
     Local images referenced by the Markdown are uploaded as attachments.
 
+    With --recursive, the file argument is a folder instead: every .md
+    file in it becomes a page under the parent, with "<name>/" folders
+    recursing as children of "<name>.md" -- the exact layout written by
+    "download --recursive". Pages are created or updated as needed.
+
     Args:
         args: Parsed argparse namespace with attributes:
-            file       -- Path to the local .md file.
+            file       -- Path to the local .md file (or folder with --recursive).
             parent_url -- URL of the parent Confluence page.
-            title      -- Title for the new page.
+            title      -- Title for the new page (ignored with --recursive).
+            recursive  -- Upload a folder as a page tree.
+            force      -- Update even when a marker version does not match.
     """
     client = get_client()
 
     # Extract the parent page ID and space key from the URL.
     parent_id = api(page_id_from_url, args.parent_url)
     space_key = api(space_key_from_url, args.parent_url)
+
+    # Recursive mode: the file argument is a folder to sync as a tree.
+    if args.recursive:
+        dir_path = Path(args.file)
+        if not dir_path.is_dir():
+            print(f"ERROR: Not a folder: {dir_path}")
+            sys.exit(1)
+        upload_tree(client, dir_path, parent_id, space_key, args.force)
+        return
+
+    if not args.title:
+        print("ERROR: A title is required (unless using --recursive).")
+        sys.exit(1)
 
     # Check for title collision before doing any file I/O.
     existing = api(client.get_page_by_title, space_key, args.title)
@@ -1104,9 +1240,21 @@ def main() -> None:
 
     # -- upload subcommand ---------------------------------------------
     up = sub.add_parser("upload", help="Create a new child page from a .md file")
-    up.add_argument("file", help="Path to the .md file")
+    up.add_argument("file", help="Path to the .md file (or a folder with --recursive)")
     up.add_argument("parent_url", help="URL of the parent Confluence page")
-    up.add_argument("title", help="Title for the new Confluence page")
+    up.add_argument(
+        "title", nargs="?", help="Title for the new Confluence page (ignored with --recursive)"
+    )
+    up.add_argument(
+        "--recursive",
+        action="store_true",
+        help="Upload a folder of .md files as a page tree (layout of download --recursive)",
+    )
+    up.add_argument(
+        "--force",
+        action="store_true",
+        help="With --recursive: update even if a page changed on Confluence since download",
+    )
     up.set_defaults(func=cmd_upload)
 
     # -- edit subcommand -----------------------------------------------

@@ -21,13 +21,25 @@ page with the same title already exists in the space — use `edit` in that case
 
 ```bash
 python src/confluence_md.py upload <file.md> <parent_url> <title>
+python src/confluence_md.py upload <folder>  <parent_url> --recursive [--force]
 ```
 
 | Argument | Required | Description |
 |---|---|---|
-| `file.md` | Yes | Path to the local Markdown file |
+| `file.md` | Yes | Path to the local Markdown file (or a folder with `--recursive`) |
 | `parent_url` | Yes | URL of the Confluence page under which the new page will be created |
-| `title` | Yes | Title for the new page |
+| `title` | Yes* | Title for the new page (*not used with `--recursive`) |
+| `--recursive` | No | Upload a folder of `.md` files as a page tree |
+| `--force` | No | With `--recursive`: update even if a page changed on Confluence since download |
+
+**Recursive mode** mirrors the layout written by `download --recursive`: every
+`<name>.md` in the folder becomes a page under the parent, and a sibling
+`<name>/` folder holds its children. For each file, the page title comes from
+the leading `# Heading` (falling back to the filename); the target page is
+chosen by the file's version marker if present, then by title lookup in the
+space, and a new page is created otherwise. Files whose marker version no
+longer matches the remote page are skipped with a warning unless `--force`
+is given.
 
 **Examples:**
 
