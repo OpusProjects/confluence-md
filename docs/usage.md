@@ -96,13 +96,14 @@ python src/confluence_md.py edit My_Page_Title.md \
 Fetches a Confluence page and writes it to a local `.md` file.
 
 ```bash
-python src/confluence_md.py download <page_url> [output.md]
+python src/confluence_md.py download <page_url> [output.md] [--recursive]
 ```
 
 | Argument | Required | Description |
 |---|---|---|
 | `page_url` | Yes | URL of the Confluence page to download |
 | `output.md` | No | Output file path. Defaults to the page title with spaces replaced by underscores |
+| `--recursive` | No | Also download all descendant pages, mirroring the page tree as folders |
 
 Images embedded from page attachments are saved into a `<name>_attachments/`
 folder next to the output file (created only when the page has such images).
@@ -110,6 +111,17 @@ folder next to the output file (created only when the page has such images).
 The first line of the output file is a version marker comment
 (`<!-- confluence-md page_id=... version=... -->`). Leave it in place: `edit`
 uses it to detect concurrent changes, and strips it before uploading.
+
+With `--recursive`, each page's children are written into a folder named
+after the page, so the folder tree mirrors the Confluence page tree:
+
+```
+Root_Page.md
+Root_Page/
+├── Child_Page.md
+└── Child_Page/
+    └── Grand_Child.md
+```
 
 **Examples:**
 

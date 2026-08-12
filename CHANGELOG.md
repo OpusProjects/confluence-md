@@ -13,6 +13,8 @@ project adheres to [Semantic Versioning](https://semver.org/).
   download (pass `--force` to overwrite anyway). Markers are stripped before
   any upload.
 - **`--version` flag** printing the tool version.
+- **Recursive download** — `download --recursive` fetches the page and all
+  its descendants, mirroring the Confluence page tree as a folder tree.
 - **Installable package** — `pip install .` now provides a `confluence-md`
   command on the PATH.
 - **Image support** — local images referenced in Markdown are uploaded as
