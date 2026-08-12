@@ -857,41 +857,64 @@ def cmd_edit(args) -> None:
     print(f"Replaced content of '{title}': {CONFLUENCE_URL}/spaces/{space_key}/pages/{page_id}")
 
 
-def cmd_download(args) -> None:
-    """Download a Confluence page and save it as a local Markdown file.
+def safe_filename(title: str) -> str:
+    """Turn a page title into a filesystem-safe filename stem.
 
-    Fetches the page body in storage format, converts it to Markdown,
-    and writes it to disk. If the page contained a "children" macro,
-    the child pages are fetched from the API and rendered as a list
-    of Markdown links. Images referencing page attachments are saved
-    into a "<name>_attachments/" folder next to the output file.
-
-    The output filename defaults to a sanitised version of the page title
-    if not explicitly provided.
+    Strips special characters, collapses whitespace into underscores and
+    removes leading/trailing underscores.
 
     Args:
-        args: Parsed argparse namespace with attributes:
-            page_url -- URL of the Confluence page to download.
-            output   -- Optional output file path (defaults to title-based name).
-    """
-    client = get_client()
+        title: The Confluence page title.
 
-    # Fetch the page with its storage body, space and version metadata.
-    page = get_page(client, args.page_url, expand="body.storage,space,version")
+    Returns:
+        A safe filename stem (falls back to "page" for empty results).
+    """
+    return re.sub(r"\s+", "_", re.sub(r"[^\w\s-]", "", title)).strip("_") or "page"
+
+
+def get_child_pages(client: Confluence, page_id: str) -> list[dict]:
+    """Fetch all direct child pages of a page, following pagination.
+
+    Args:
+        client: Authenticated Confluence client.
+        page_id: ID of the parent page.
+
+    Returns:
+        A list of child page resource dicts (possibly empty).
+    """
+    children: list[dict] = []
+    start = 0
+    limit = 50
+    while True:
+        batch = api(client.get_page_child_by_type, page_id, type="page", start=start, limit=limit)
+        # The API may return a dict with "results" or a plain list,
+        # depending on the atlassian-python-api version.
+        batch = batch.get("results", []) if isinstance(batch, dict) else (batch or [])
+        children.extend(batch)
+        if len(batch) < limit:
+            return children
+        start += limit
+
+
+def download_page(client: Confluence, page: dict, out_path: Path, recursive: bool = False) -> None:
+    """Write one fetched Confluence page to disk as Markdown.
+
+    Converts the page body, resolves [CHILD_PAGES] markers into links,
+    downloads referenced image attachments into a "<name>_attachments/"
+    folder, and writes the file with a version marker. With recursive=True,
+    child pages are downloaded into a "<name>/" folder next to the file,
+    each going through this same function.
+
+    Args:
+        client: Authenticated Confluence client.
+        page: Page resource dict (expanded with body.storage, space, version).
+        out_path: Path of the Markdown file to write.
+        recursive: Also download all descendant pages.
+    """
     title = page["title"]
     page_id = page["id"]
     space_key = page["space"]["key"]
     version = page.get("version", {}).get("number")
-
-    # Determine the output file path first -- the attachments folder is
-    # named after it and image links must point there.
-    if args.output:
-        out_path = Path(args.output)
-    else:
-        # Derive a safe filename from the page title: strip special chars,
-        # collapse whitespace into underscores, remove leading/trailing underscores.
-        safe_title = re.sub(r"\s+", "_", re.sub(r"[^\w\s-]", "", title)).strip("_")
-        out_path = Path(f"{safe_title}.md")
     att_dir = out_path.with_name(f"{out_path.stem}_attachments")
 
     # Convert the Confluence storage format XHTML to Markdown. Image
@@ -900,18 +923,13 @@ def cmd_download(args) -> None:
         page["body"]["storage"]["value"], attachment_prefix=f"{att_dir.name}/"
     )
 
-    # Resolve [CHILD_PAGES] markers by fetching actual child pages from
-    # the API and rendering them as a Markdown list of links.
+    # Fetch the child page list once if anything below needs it.
+    children = get_child_pages(client, page_id) if recursive or "[CHILD_PAGES]" in md_text else []
+
+    # Resolve [CHILD_PAGES] markers into a Markdown list of links.
     if "[CHILD_PAGES]" in md_text:
-        children = api(client.get_page_child_by_type, page_id, type="page")
-
-        # The API may return a dict with "results" or a plain list,
-        # depending on the atlassian-python-api version.
-        child_list = children.get("results", []) if isinstance(children, dict) else (children or [])
-
-        # Build a Markdown bullet list with each child as a link.
         child_lines = []
-        for child in child_list:
+        for child in children:
             child_url = f"{CONFLUENCE_URL}/spaces/{space_key}/pages/{child['id']}"
             child_lines.append(f"- [{child['title']}]({child_url})")
         md_text = md_text.replace("[CHILD_PAGES]", "\n".join(child_lines))
@@ -939,6 +957,51 @@ def cmd_download(args) -> None:
     marker = f"<!-- confluence-md page_id={page_id} version={version} -->\n" if version else ""
     out_path.write_text(f"{marker}# {title}\n\n{md_text}", encoding="utf-8")
     print(f"Downloaded '{title}' -> {out_path}")
+
+    # Recurse into child pages, mirroring the page tree as a folder tree.
+    if recursive and children:
+        sub_dir = out_path.with_name(out_path.stem)
+        sub_dir.mkdir(parents=True, exist_ok=True)
+        for child in children:
+            child_page = api(
+                client.get_page_by_id, child["id"], expand="body.storage,space,version"
+            )
+            child_path = sub_dir / f"{safe_filename(child_page['title'])}.md"
+            download_page(client, child_page, child_path, recursive=True)
+
+
+def cmd_download(args) -> None:
+    """Download a Confluence page and save it as a local Markdown file.
+
+    Fetches the page body in storage format, converts it to Markdown,
+    and writes it to disk. If the page contained a "children" macro,
+    the child pages are fetched from the API and rendered as a list
+    of Markdown links. Images referencing page attachments are saved
+    into a "<name>_attachments/" folder next to the output file.
+
+    With --recursive, all descendant pages are downloaded too: each
+    page's children go into a "<name>/" folder next to its file, so the
+    folder tree mirrors the page tree.
+
+    The output filename defaults to a sanitised version of the page title
+    if not explicitly provided.
+
+    Args:
+        args: Parsed argparse namespace with attributes:
+            page_url  -- URL of the Confluence page to download.
+            output    -- Optional output file path (defaults to title-based name).
+            recursive -- Also download all descendant pages.
+    """
+    client = get_client()
+
+    # Fetch the page with its storage body, space and version metadata.
+    page = get_page(client, args.page_url, expand="body.storage,space,version")
+
+    # Determine the output file path -- the attachments folder and the
+    # children folder are both named after it.
+    out_path = Path(args.output) if args.output else Path(f"{safe_filename(page['title'])}.md")
+
+    download_page(client, page, out_path, recursive=args.recursive)
 
 
 # ===================================================================
@@ -980,6 +1043,11 @@ def main() -> None:
     dl = sub.add_parser("download", help="Download a Confluence page as a .md file")
     dl.add_argument("page_url", help="URL of the Confluence page")
     dl.add_argument("output", nargs="?", help="Output file path (defaults to page title)")
+    dl.add_argument(
+        "--recursive",
+        action="store_true",
+        help="Also download all child pages into a folder named after the page",
+    )
     dl.set_defaults(func=cmd_download)
 
     # Dispatch to the selected subcommand handler.
