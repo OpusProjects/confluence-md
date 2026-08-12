@@ -8,11 +8,14 @@ Two-way Markdown ↔ Confluence sync from the command line, written in Python.
 
 Confluence MD allows you to create, edit and download Confluence Cloud
 pages as local Markdown files — all through the REST API, with a
-single-file script and no server-side install.
+single-file script and no server-side install. It works page by page or
+on whole page trees, mirroring them to local folders and back.
 
 Round-tripping is the point: every supported element converts in both
 directions, so a page can be downloaded, edited locally in your editor,
-and pushed back without losing structure.
+and pushed back without losing structure. A version marker in each
+downloaded file ensures nobody's concurrent edits are overwritten along
+the way.
 
 ---
 
