@@ -61,6 +61,42 @@ class TestCodeMacro:
         assert "]]]]><![CDATA[>" in out
 
 
+class TestPanelUpload:
+    def test_note_blockquote_becomes_panel(self):
+        out = md_to_confluence_storage("> **Note:** remember this")
+        assert '<ac:structured-macro ac:name="note">' in out
+        assert "<ac:rich-text-body><p>remember this</p></ac:rich-text-body>" in out
+        assert "<blockquote>" not in out
+
+    def test_warning_label_case_insensitive(self):
+        out = md_to_confluence_storage("> **WARNING:** careful")
+        assert '<ac:structured-macro ac:name="warning">' in out
+
+    def test_unknown_label_stays_blockquote(self):
+        out = md_to_confluence_storage("> **Danger Zone:** careful")
+        assert "<blockquote>" in out
+        assert "ac:structured-macro" not in out
+
+    def test_plain_blockquote_untouched(self):
+        out = md_to_confluence_storage("> just a quote")
+        assert "<blockquote>" in out
+        assert "ac:structured-macro" not in out
+
+    def test_panel_round_trip(self):
+        from confluence_md import confluence_storage_to_md
+
+        storage = (
+            '<ac:structured-macro ac:name="tip">'
+            "<ac:rich-text-body><p>try this</p></ac:rich-text-body>"
+            "</ac:structured-macro>"
+        )
+        md = confluence_storage_to_md(storage)
+        assert "> **Tip:** try this" in md
+        again = md_to_confluence_storage(md)
+        assert '<ac:structured-macro ac:name="tip">' in again
+        assert "try this" in again
+
+
 class TestMarkerMacros:
     def test_toc(self):
         out = md_to_confluence_storage("[TOC]\n\n# Head")

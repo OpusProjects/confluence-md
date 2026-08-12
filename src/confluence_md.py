@@ -228,7 +228,10 @@ def md_to_confluence_storage(md_text: str, image_paths: list[str] | None = None)
         5. Convert images (<img>) into Confluence image macros: external
            URLs become ri:url references, local paths become
            ri:attachment references (the caller uploads the files).
-        6. Substitute all placeholders back into the serialised HTML.
+        6. Convert blockquotes labeled **Info:**, **Note:**, **Warning:**
+           or **Tip:** (the shape "download" produces for panels) back
+           into the matching Confluence panel macro.
+        7. Substitute all placeholders back into the serialised HTML.
 
     Null-byte delimited placeholders are used because BeautifulSoup's
     html.parser serialiser mangles CDATA sections and ac: namespaced
@@ -352,9 +355,42 @@ def md_to_confluence_storage(md_text: str, image_paths: list[str] | None = None)
             )
         img.replace_with(placeholder)
 
-    # -- Step 6: Serialise and substitute placeholders ------------------
+    # -- Step 6: Convert labeled blockquotes back to panel macros -------
+    # "download" degrades panels to blockquotes starting with a bold
+    # label; recognise that shape and restore the panel macro so the
+    # round trip preserves Info / Note / Warning / Tip panels.
+    panel_kinds = {"info", "note", "warning", "tip"}
+    for i, bq in enumerate(soup.find_all("blockquote")):
+        first_p = bq.find("p")
+        first = first_p.contents[0] if first_p and first_p.contents else None
+        if not (isinstance(first, Tag) and first.name == "strong"):
+            continue
+        label = first.get_text().strip()
+        kind = label[:-1].strip().lower() if label.endswith(":") else None
+        if kind not in panel_kinds:
+            continue
+
+        # Drop the label and the space that follows it, then serialise
+        # the remaining blockquote content as the panel body.
+        first.extract()
+        if first_p.contents and isinstance(first_p.contents[0], NavigableString):
+            first_p.contents[0].replace_with(soup.new_string(str(first_p.contents[0]).lstrip()))
+        body_html = "".join(str(c) for c in bq.children).strip()
+
+        placeholder = f"\x00PANEL{i}\x00"
+        macros[placeholder] = (
+            f'<ac:structured-macro ac:name="{kind}">'
+            f"<ac:rich-text-body>{body_html}</ac:rich-text-body>"
+            f"</ac:structured-macro>"
+        )
+        bq.replace_with(placeholder)
+
+    # -- Step 7: Serialise and substitute placeholders ------------------
+    # Reverse insertion order so containers inserted later (panels) land
+    # in the result before the placeholders nested inside them (code
+    # blocks, images) are substituted.
     result = str(soup)
-    for placeholder, macro in macros.items():
+    for placeholder, macro in reversed(macros.items()):
         result = result.replace(placeholder, macro)
     return result
 

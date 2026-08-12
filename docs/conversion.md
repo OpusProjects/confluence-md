@@ -9,7 +9,7 @@ Every element listed below converts in both directions (upload and download).
 - [Table of Contents — `[TOC]`](#table-of-contents--toc)
 - [Child Pages — `[CHILD_PAGES]`](#child-pages--child_pages)
 - [Images](#images)
-- [Panels (download only)](#panels-download-only)
+- [Panels](#panels)
 - [Known limitations](#known-limitations)
 
 ## Formatting
@@ -121,18 +121,20 @@ point there:
 External images keep their URL. A download → upload round trip re-attaches
 the same files.
 
-## Panels (download only)
+## Panels
 
-Confluence Info / Note / Warning / Tip / Panel macros have no Markdown
-equivalent, so on download they degrade to a blockquote with a bold label —
-the panel's own title if it has one, otherwise its kind:
+Confluence panels round-trip through labeled blockquotes. On download, an
+Info / Note / Warning / Tip / Panel macro becomes a blockquote with a bold
+label — the panel's own title if it has one, otherwise its kind:
 
 ```markdown
 > **Warning:** this action cannot be undone.
 ```
 
-This direction is one-way: uploading the blockquote produces a regular
-Confluence blockquote, not a panel.
+On upload, a blockquote starting with `**Info:**`, `**Note:**`,
+`**Warning:**` or `**Tip:**` is restored to the matching panel macro.
+Blockquotes with any other label (e.g. a custom panel title like
+`**Danger Zone:**`) stay regular blockquotes.
 
 ## Known limitations
 
@@ -141,8 +143,9 @@ during conversion:
 
 - **Non-image attachments** (PDFs, archives, ...) are not downloaded; only
   attachments referenced by an image macro are fetched.
-- **Info / Note / Warning / Tip panels** become plain blockquotes on
-  download; re-uploading does not restore the colored panel.
+- **Panels with a custom title** download as blockquotes labeled with that
+  title; on re-upload they stay blockquotes (only the four standard labels
+  are restored to panels).
 - **Confluence-specific macros** (other than `code`, `toc`, `children` and
   the panel macros) are stripped on download.
 - **Internal page links** (links to other Confluence pages) are converted to
