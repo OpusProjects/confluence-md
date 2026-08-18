@@ -5,10 +5,6 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    groups:
-      # One PR per week bundling all action bumps, instead of one PR per action
-      github-actions:
-        patterns: ["*"]
     # Match the commit style in CONTRIBUTING.md: "build(deps): bump ..."
     commit-message:
       prefix: "build"
@@ -19,10 +15,6 @@ updates:
     directory: "/src"
     schedule:
       interval: "weekly"
-    groups:
-      # One grouped PR per week instead of one per package
-      pip:
-        patterns: ["*"]
     commit-message:
       prefix: "build"
       include: "scope"
