@@ -12,7 +12,7 @@ authors = [{ name = "Blai Peidro" }]
 keywords = ["confluence", "markdown", "atlassian", "cli", "sync"]
 dynamic = ["version"]
 dependencies = [
-    "atlassian-python-api>=4.0",
+    "atlassian-python-api>=5.0",
     "beautifulsoup4>=4.13",
     "Markdown>=3.10",
     "python-dotenv>=1.1",
