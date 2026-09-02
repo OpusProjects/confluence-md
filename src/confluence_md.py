@@ -564,8 +564,10 @@ def confluence_storage_to_md(
            URL references keep their URL.
         7. Replace task lists (ac:task-list) with Markdown checkbox
            items (- [ ] / - [x]).
-        8. Decompose (remove) all remaining ac: and ri: namespaced
-           elements that have no Markdown equivalent.
+        8. Keep the content of the remaining ac: elements that merely
+           wrap it (layouts, inline comment markers, unhandled macros
+           with a rich-text body, ADF fallbacks), then remove what is
+           left of the ac: and ri: namespaces.
         9. Walk top-level elements and convert each to Markdown:
            headings, paragraphs, lists, tables, blockquotes, hr, etc.
         10. If a TOC placeholder is present, build the table of contents
@@ -698,10 +700,64 @@ def confluence_storage_to_md(
             task_lines.append(f"- [{'x' if done else ' '}] {text}")
         task_list.replace_with(soup.new_string("\n" + "\n".join(task_lines) + "\n"))
 
-    # -- Step 8: Remove all remaining Confluence-specific elements -----
-    # ac: elements are structured macros and their sub-elements.
-    # ri: elements are resource identifiers (e.g. for attachments).
-    # Neither has a Markdown equivalent.
+    # -- Step 8: Unwrap, then remove, the remaining ac: / ri: elements --
+    # Not every ac: element is a macro with no Markdown shape. Several
+    # only *wrap* ordinary content, and removing them removed the content
+    # too: a page laid out in columns downloaded as an empty file, an
+    # expand macro vanished with everything inside it, and the text under
+    # an inline comment disappeared mid-sentence. Keep what can be kept:
+    #
+    #   - an unhandled macro with a rich-text body (expand, excerpt, ...)
+    #     becomes its body, preceded by its title in bold when it has one;
+    #   - a macro with a title but no body (status, ...) becomes that
+    #     title in bold, inline;
+    #   - layouts, inline-comment markers and ADF fallbacks are unwrapped
+    #     so their content falls through to the element walk below;
+    #   - an emoticon becomes its emoji fallback text.
+    #
+    # Only then is the rest removed: parameters, plain-text bodies and
+    # resource identifiers are macro plumbing with nothing to show.
+    for macro in soup.find_all("ac:structured-macro"):
+        body = macro.find("ac:rich-text-body")
+        title_tag = macro.find("ac:parameter", attrs={"ac:name": "title"})
+        title = title_tag.get_text(strip=True) if title_tag else ""
+        if body is None and not title:
+            continue  # nothing showable; removed below
+        strong = None
+        if title:
+            strong = soup.new_tag("strong")
+            strong.string = title
+        if body is None:
+            macro.replace_with(strong)
+            continue
+        if strong is not None:
+            title_p = soup.new_tag("p")
+            title_p.append(strong)
+            macro.insert_before(title_p)
+        for child in list(body.children):
+            macro.insert_before(child.extract())
+        macro.decompose()
+
+    for ext in soup.find_all("ac:adf-extension"):
+        fallback = ext.find("ac:adf-fallback")
+        if fallback is None:
+            ext.decompose()
+            continue
+        for child in list(fallback.children):
+            ext.insert_before(child.extract())
+        ext.decompose()
+
+    for emoticon in soup.find_all("ac:emoticon"):
+        fallback = emoticon.get("ac:emoji-fallback", "")
+        if fallback:
+            emoticon.replace_with(soup.new_string(fallback))
+        else:
+            emoticon.decompose()
+
+    wrappers = ["ac:layout", "ac:layout-section", "ac:layout-cell", "ac:inline-comment-marker"]
+    for wrapper in soup.find_all(wrappers):
+        wrapper.unwrap()
+
     for tag in soup.find_all(re.compile(r"^(ac|ri):")):
         tag.decompose()
 

@@ -185,7 +185,12 @@ during conversion:
   title; on re-upload they stay blockquotes (only the four standard labels
   are restored to panels).
 - **Confluence-specific macros** (other than `code`, `toc`, `children` and
-  the panel macros) are stripped on download.
+  the panel macros) lose their macro on download, but not their content: a
+  macro with a rich-text body (`expand`, `excerpt`, ...) downloads as that
+  body, preceded by its title in bold when it has one; a bodiless macro with
+  a title (`status`, ...) downloads as the title in bold; page layouts and
+  inline comment markers are unwrapped; emoticons download as their emoji.
+  A bodiless macro without a title (`jira`, `anchor`, ...) is removed.
 - **Internal page links** are converted to plain text on single-page
   download. In `download --recursive`, links between pages of the downloaded
   tree become relative file links; only links to pages outside the tree

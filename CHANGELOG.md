@@ -38,6 +38,15 @@ project adheres to [Semantic Versioning](https://semver.org/).
   `**Note:**`, `**Warning:**` or `**Tip:**` are restored to the matching
   panel macro, making panels round-trip.
 
+### Fixed
+
+- `download` dropped the content of Confluence elements that only wrap it:
+  a page laid out in columns downloaded as an empty file, `expand` and
+  other body-carrying macros vanished with everything inside them, and the
+  text under an inline comment disappeared mid-sentence. Their content is
+  now kept; `status` macros download as their title in bold and emoticons
+  as their emoji.
+
 ## [0.1.0] - 2026-08-12
 
 ### Added
