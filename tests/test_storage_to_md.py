@@ -91,16 +91,77 @@ class TestMacros:
         out = confluence_storage_to_md('<ac:structured-macro ac:name="children" />')
         assert "[CHILD_PAGES]" in out
 
-    def test_unknown_macro_stripped(self):
+    def test_unknown_macro_body_kept(self):
         storage = (
             '<p>before</p><ac:structured-macro ac:name="excerpt">'
             "<ac:rich-text-body><p>excerpt text</p></ac:rich-text-body>"
             "</ac:structured-macro><p>after</p>"
         )
         out = confluence_storage_to_md(storage)
-        assert "before" in out
-        assert "after" in out
-        assert "ac:" not in out
+        assert out == "before\n\nexcerpt text\n\nafter\n"
+
+    def test_expand_macro_keeps_title_and_body(self):
+        storage = (
+            '<ac:structured-macro ac:name="expand">'
+            '<ac:parameter ac:name="title">Details</ac:parameter>'
+            "<ac:rich-text-body><p>Hidden <strong>text</strong></p>"
+            "<ul><li>item</li></ul></ac:rich-text-body>"
+            "</ac:structured-macro>"
+        )
+        out = confluence_storage_to_md(storage)
+        assert out == "**Details**\n\nHidden **text**\n\n- item\n"
+
+    def test_bodiless_macro_with_title_becomes_bold_text(self):
+        storage = (
+            '<p>State: <ac:structured-macro ac:name="status">'
+            '<ac:parameter ac:name="colour">Green</ac:parameter>'
+            '<ac:parameter ac:name="title">DONE</ac:parameter>'
+            "</ac:structured-macro></p>"
+        )
+        assert confluence_storage_to_md(storage) == "State: **DONE**\n"
+
+    def test_bodiless_macro_without_title_removed(self):
+        storage = (
+            '<p>a</p><ac:structured-macro ac:name="jira">'
+            '<ac:parameter ac:name="key">PROJ-1</ac:parameter>'
+            "</ac:structured-macro><p>b</p>"
+        )
+        assert confluence_storage_to_md(storage) == "a\n\nb\n"
+
+    def test_layout_content_kept(self):
+        storage = (
+            '<ac:layout><ac:layout-section ac:type="two_equal">'
+            "<ac:layout-cell><p>Left</p></ac:layout-cell>"
+            "<ac:layout-cell><h2>Right</h2><p>text</p></ac:layout-cell>"
+            "</ac:layout-section></ac:layout>"
+        )
+        assert confluence_storage_to_md(storage) == "Left\n\n## Right\n\ntext\n"
+
+    def test_inline_comment_marker_keeps_text(self):
+        storage = (
+            '<p>Keep <ac:inline-comment-marker ac:ref="abc">this part</ac:inline-comment-marker>'
+            " of the sentence.</p>"
+        )
+        assert confluence_storage_to_md(storage) == "Keep this part of the sentence.\n"
+
+    def test_emoticon_becomes_fallback_text(self):
+        storage = (
+            '<p>Hi <ac:emoticon ac:name="smile" ac:emoji-shortname=":smile:"'
+            ' ac:emoji-fallback="\U0001f604"/> there</p>'
+        )
+        assert confluence_storage_to_md(storage) == "Hi \U0001f604 there\n"
+
+    def test_emoticon_without_fallback_removed(self):
+        storage = '<p>Hi <ac:emoticon ac:name="smile"/> there</p>'
+        assert confluence_storage_to_md(storage) == "Hi  there\n"
+
+    def test_adf_extension_keeps_fallback(self):
+        storage = (
+            '<ac:adf-extension><ac:adf-node type="decision-list">'
+            "<ac:adf-content><p>ignored</p></ac:adf-content></ac:adf-node>"
+            "<ac:adf-fallback><p>Fallback text</p></ac:adf-fallback></ac:adf-extension>"
+        )
+        assert confluence_storage_to_md(storage) == "Fallback text\n"
 
 
 class TestPanels:
