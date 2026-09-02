@@ -49,6 +49,12 @@ project adheres to [Semantic Versioning](https://semver.org/).
 - A `<` or `&` in a task-list item was written raw into the page body, so
   `upload` and `edit` of a checklist mentioning `a < b` or `R&D` were
   rejected by Confluence. The text is now escaped like the rest of the page.
+- `download` flattened any table Confluence had wrapped in a
+  `<div class="table-wrap">` — which is every table saved from the editor —
+  to its cell texts run together, and did the same to headings, lists and
+  paragraphs inside any other `<div>`. Wrappers are now transparent, and
+  consecutive paragraphs inside a table cell or list item are kept apart
+  (joined by a space in cells, as indented continuation lines in items).
 
 ## [0.1.0] - 2026-08-12
 

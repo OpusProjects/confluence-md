@@ -42,6 +42,7 @@ Structural elements keep their shape in both directions:
 | `- item` | unordered list (`<ul>`) | both |
 | `1. item` | ordered list (`<ol>`) | both |
 | indented sub-items | nested lists | both |
+| indented continuation lines | several paragraphs in one item | both |
 
 ---
 
@@ -75,7 +76,10 @@ Markdown pipe tables map to Confluence tables and back:
 Converts to / from Confluence `<table>`. Inline formatting (bold, italic,
 links) inside cells is preserved. On download, pipe characters (`|`) inside
 cells are escaped and line breaks are replaced with spaces so they cannot
-break the Markdown table structure.
+break the Markdown table structure; a cell holding several paragraphs
+downloads as those paragraphs joined by a space. The `<div class="table-wrap">`
+Confluence puts around every table, like any other `<div>` or `<section>`
+wrapper, is transparent: only its content is converted.
 
 ---
 
