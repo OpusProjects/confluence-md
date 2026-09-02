@@ -947,7 +947,8 @@ def split_leading_h1(md_text: str) -> tuple[str | None, str]:
         A (title, remaining_text) tuple; title is None when the text does
         not start with an h1 heading.
     """
-    m = re.match(r"\s*#\s+(.+?)\s*\n+", md_text)
+    # The heading may also be the whole file, with no newline after it.
+    m = re.match(r"\s*#\s+(.+?)\s*(?:\n+|\Z)", md_text)
     if not m:
         return None, md_text
     return m.group(1), md_text[m.end() :]
