@@ -1192,6 +1192,33 @@ def safe_filename(title: str) -> str:
     return re.sub(r"\s+", "_", re.sub(r"[^\w\s-]", "", title)).strip("_") or "page"
 
 
+def unique_filename(stem: str, used: set[str]) -> str:
+    """Make a filename stem unique among the ones already used in a folder.
+
+    safe_filename() is lossy: "Setup: A" and "Setup A" both become
+    "Setup_A", and "Q&A" and "QA" become "QA". Two sibling pages with
+    such titles would be written to the same path, the second silently
+    overwriting the first. The first keeps the plain stem; later ones get
+    a numeric suffix ("Setup_A_2", "Setup_A_3", ...). Comparison is
+    case-insensitive because the common desktop filesystems are.
+
+    Args:
+        stem: Candidate filename stem, as returned by safe_filename().
+        used: Stems already taken in the folder, lowercased. The chosen
+            stem is added to it.
+
+    Returns:
+        The stem itself, or the stem with the lowest free numeric suffix.
+    """
+    candidate = stem
+    counter = 2
+    while candidate.lower() in used:
+        candidate = f"{stem}_{counter}"
+        counter += 1
+    used.add(candidate.lower())
+    return candidate
+
+
 def get_child_pages(client: Confluence, page_id: str) -> list[dict]:
     """Fetch all direct child pages of a page, following pagination.
 
@@ -1330,11 +1357,13 @@ def download_page(
     if recursive and children:
         sub_dir = out_path.with_name(out_path.stem)
         sub_dir.mkdir(parents=True, exist_ok=True)
+        used_stems: set[str] = set()
         for child in children:
             child_page = api(
                 client.get_page_by_id, child["id"], expand="body.storage,space,version"
             )
-            child_path = sub_dir / f"{safe_filename(child_page['title'])}.md"
+            stem = unique_filename(safe_filename(child_page["title"]), used_stems)
+            child_path = sub_dir / f"{stem}.md"
             download_page(client, child_page, child_path, recursive=True, _tree=_tree)
 
     # Once the whole tree is on disk, resolve inter-page links.

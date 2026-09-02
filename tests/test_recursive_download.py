@@ -3,7 +3,7 @@
 import argparse
 
 import confluence_md
-from confluence_md import safe_filename
+from confluence_md import safe_filename, unique_filename
 
 PAGE_URL = "https://org.atlassian.net/wiki/spaces/ENG/pages/1"
 
@@ -17,6 +17,29 @@ class TestSafeFilename:
 
     def test_empty_falls_back(self):
         assert safe_filename("///") == "page"
+
+
+class TestUniqueFilename:
+    def test_first_use_keeps_stem(self):
+        used = set()
+        assert unique_filename("Setup_A", used) == "Setup_A"
+        assert used == {"setup_a"}
+
+    def test_collisions_get_numeric_suffixes(self):
+        used = set()
+        assert unique_filename("Setup_A", used) == "Setup_A"
+        assert unique_filename("Setup_A", used) == "Setup_A_2"
+        assert unique_filename("Setup_A", used) == "Setup_A_3"
+
+    def test_comparison_is_case_insensitive(self):
+        used = set()
+        assert unique_filename("Readme", used) == "Readme"
+        assert unique_filename("README", used) == "README_2"
+
+    def test_suffix_skips_taken_names(self):
+        used = {"page_2"}
+        assert unique_filename("page", used) == "page"
+        assert unique_filename("page", used) == "page_3"
 
 
 class FakeClient:
@@ -72,3 +95,24 @@ def test_recursive_files_carry_version_markers(tmp_path, monkeypatch):
     _download(tmp_path, monkeypatch, recursive=True)
     child = (tmp_path / "Root_Page" / "Child_Page.md").read_text(encoding="utf-8")
     assert child.startswith("<!-- confluence-md page_id=2 version=1 -->")
+
+
+class CollidingClient(FakeClient):
+    """Root(1) with two children whose titles sanitise to the same stem."""
+
+    PAGES = {
+        "1": {"title": "Root Page", "body": "<p>root body</p>", "children": ["2", "3"]},
+        "2": {"title": "Setup: A", "body": "<p>first setup</p>", "children": []},
+        "3": {"title": "Setup A", "body": "<p>second setup</p>", "children": []},
+    }
+
+
+def test_recursive_keeps_both_pages_with_colliding_filenames(tmp_path, monkeypatch):
+    monkeypatch.setattr(confluence_md, "get_client", lambda: CollidingClient())
+    monkeypatch.chdir(tmp_path)
+    args = argparse.Namespace(page_url=PAGE_URL, output=None, recursive=True)
+    confluence_md.cmd_download(args)
+    first = tmp_path / "Root_Page" / "Setup_A.md"
+    second = tmp_path / "Root_Page" / "Setup_A_2.md"
+    assert "first setup" in first.read_text(encoding="utf-8")
+    assert "second setup" in second.read_text(encoding="utf-8")
