@@ -350,6 +350,11 @@ def md_to_confluence_storage(md_text: str, image_paths: list[str] | None = None)
                 f'<ri:url ri:value="{html.escape(src)}" /></ac:image>'
             )
         else:
+            # A Markdown link target is percent-encoded ("my%20file.png"
+            # for a file called "my file.png"), which is how "download"
+            # writes attachment names. Decode it to find the file on disk
+            # and to name the attachment as Confluence knows it.
+            src = unquote(src)
             if image_paths is not None:
                 image_paths.append(src)
             filename = Path(src).name
@@ -688,16 +693,17 @@ def confluence_storage_to_md(
     # -- Step 6: Convert images to Markdown image syntax ---------------
     # Attachment references become links into the attachments folder
     # (downloaded by cmd_download); external URL references keep their
-    # URL. Anything else (e.g. user avatars) is dropped.
+    # URL. Anything else (e.g. user avatars) is dropped. The filename is
+    # percent-encoded in the link: a space or parenthesis written raw
+    # ends the link target early in every standard Markdown renderer.
     for image in soup.find_all("ac:image"):
         alt = image.get("ac:alt", "")
         attachment = image.find("ri:attachment")
         url = image.find("ri:url")
         if attachment is not None:
             filename = attachment.get("ri:filename", "")
-            image.replace_with(
-                soup.new_string(f"![{alt or filename}]({attachment_prefix}{filename})")
-            )
+            target = f"{attachment_prefix}{quote(filename)}"
+            image.replace_with(soup.new_string(f"![{alt or filename}]({target})"))
         elif url is not None:
             image.replace_with(soup.new_string(f"![{alt}]({url.get('ri:value', '')})"))
         else:
@@ -1326,7 +1332,11 @@ def download_page(
 
     # Download the attachments referenced by image links into the
     # attachments folder, matching them to the page's attachments by name.
-    referenced = re.findall(rf"!\[[^\]]*\]\({re.escape(att_dir.name)}/([^)]+)\)", md_text)
+    # The links carry the names percent-encoded; decode them first.
+    referenced = [
+        unquote(name)
+        for name in re.findall(rf"!\[[^\]]*\]\({re.escape(att_dir.name)}/([^)]+)\)", md_text)
+    ]
     if referenced:
         attachments = api(client.get_attachments_from_content, page_id, limit=250)
         by_title = {a["title"]: a for a in attachments.get("results", [])}
