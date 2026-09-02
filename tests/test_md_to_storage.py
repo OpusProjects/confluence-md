@@ -62,6 +62,10 @@ class TestCodeMacro:
 
 
 class TestPanelUpload:
+    def test_special_characters_escaped_in_panel_body(self):
+        out = md_to_confluence_storage("> **Info:** a < b & c")
+        assert "<ac:rich-text-body><p>a &lt; b &amp; c</p></ac:rich-text-body>" in out
+
     def test_note_blockquote_becomes_panel(self):
         out = md_to_confluence_storage("> **Note:** remember this")
         assert '<ac:structured-macro ac:name="note">' in out

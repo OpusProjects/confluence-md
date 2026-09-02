@@ -46,6 +46,9 @@ project adheres to [Semantic Versioning](https://semver.org/).
   text under an inline comment disappeared mid-sentence. Their content is
   now kept; `status` macros download as their title in bold and emoticons
   as their emoji.
+- A `<` or `&` in a task-list item was written raw into the page body, so
+  `upload` and `edit` of a checklist mentioning `a < b` or `R&D` were
+  rejected by Confluence. The text is now escaped like the rest of the page.
 
 ## [0.1.0] - 2026-08-12
 

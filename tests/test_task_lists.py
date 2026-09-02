@@ -29,6 +29,11 @@ class TestMarkdownToStorage:
         out = md_to_confluence_storage("- [ ] fix the **big** bug")
         assert "<span>fix the <strong>big</strong> bug</span>" in out
 
+    def test_special_characters_escaped_in_task_body(self):
+        out = md_to_confluence_storage("- [ ] check a < b && c > d")
+        assert "<span>check a &lt; b &amp;&amp; c &gt; d</span>" in out
+        assert "a < b" not in out
+
     def test_mixed_list_stays_regular(self):
         out = md_to_confluence_storage("- [ ] task item\n- plain item")
         assert "ac:task-list" not in out
@@ -62,6 +67,12 @@ class TestRoundTrip:
         out = confluence_storage_to_md(md_to_confluence_storage(md))
         assert "- [ ] first task" in out
         assert "- [x] done task" in out
+
+    def test_special_characters_round_trip(self):
+        md = "- [ ] a < b & c\n- [x] d > e"
+        out = confluence_storage_to_md(md_to_confluence_storage(md))
+        assert "- [ ] a < b & c" in out
+        assert "- [x] d > e" in out
 
     def test_storage_round_trip(self):
         md = confluence_storage_to_md(TASK_LIST_STORAGE)

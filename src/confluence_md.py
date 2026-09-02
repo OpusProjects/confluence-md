@@ -379,7 +379,10 @@ def md_to_confluence_storage(md_text: str, image_paths: list[str] | None = None)
             # Strip the checkbox prefix, keep the rest (with formatting).
             li.contents[0].replace_with(soup.new_string(str(li.contents[0])[m.end() :]))
             status = "complete" if m.group(1).lower() == "x" else "incomplete"
-            body_html = "".join(str(c) for c in li.children).strip()
+            # decode_contents() serialises the text nodes with entities;
+            # str() on each child does not, so a "<" or "&" in the item
+            # text landed raw in the XML and Confluence rejected the page.
+            body_html = li.decode_contents().strip()
             tasks_xml.append(
                 f"<ac:task><ac:task-status>{status}</ac:task-status>"
                 f"<ac:task-body><span>{body_html}</span></ac:task-body></ac:task>"
@@ -408,7 +411,7 @@ def md_to_confluence_storage(md_text: str, image_paths: list[str] | None = None)
         first.extract()
         if first_p.contents and isinstance(first_p.contents[0], NavigableString):
             first_p.contents[0].replace_with(soup.new_string(str(first_p.contents[0]).lstrip()))
-        body_html = "".join(str(c) for c in bq.children).strip()
+        body_html = bq.decode_contents().strip()
 
         placeholder = f"\x00PANEL{i}\x00"
         macros[placeholder] = (
