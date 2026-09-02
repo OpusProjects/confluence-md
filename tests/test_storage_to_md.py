@@ -31,6 +31,19 @@ class TestBasicElements:
         assert "> quoted" in out
 
 
+class TestContainers:
+    def test_div_wrapped_paragraphs_stay_separate(self):
+        out = confluence_storage_to_md("<div><p>a</p><p>b</p></div>")
+        assert out == "a\n\nb\n"
+
+    def test_nested_containers_unwrapped(self):
+        out = confluence_storage_to_md(
+            '<div class="content-wrapper"><section><div><h2>Title</h2></div>'
+            "<ul><li>item</li></ul></section></div>"
+        )
+        assert out == "## Title\n\n- item\n"
+
+
 class TestTables:
     def test_header_separator(self):
         out = confluence_storage_to_md(
@@ -43,6 +56,20 @@ class TestTables:
     def test_pipes_escaped_in_cells(self):
         out = confluence_storage_to_md("<table><tr><td>a|b</td></tr></table>")
         assert "a\\|b" in out
+
+    def test_table_wrap_div_unwrapped(self):
+        out = confluence_storage_to_md(
+            '<div class="table-wrap"><table><tbody>'
+            "<tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr>"
+            "</tbody></table></div>"
+        )
+        assert out == "| A | B |\n| --- | --- |\n| 1 | 2 |\n"
+
+    def test_paragraphs_in_cell_joined_with_space(self):
+        out = confluence_storage_to_md(
+            "<table><tr><td><p>first</p><p>second</p></td><td>x</td></tr></table>"
+        )
+        assert "| first second | x |" in out
 
 
 class TestLists:
@@ -59,6 +86,16 @@ class TestLists:
         out = confluence_storage_to_md("<ul><li>parent<ul><li>child</li></ul></li></ul>")
         assert "- parent" in out
         assert "  - child" in out
+
+    def test_paragraphs_in_item_become_continuation_lines(self):
+        out = confluence_storage_to_md(
+            "<ul><li><p>a</p><p>b</p><ul><li><p>n1</p><p>n2</p></li></ul></li><li>c</li></ul>"
+        )
+        assert out == "- a\n  b\n  - n1\n    n2\n- c\n"
+
+    def test_line_break_in_item_indents_continuation(self):
+        out = confluence_storage_to_md("<ul><li>a<br/>b</li></ul>")
+        assert out == "- a  \n  b\n"
 
     def test_multiple_nested_lists_in_one_item(self):
         out = confluence_storage_to_md(

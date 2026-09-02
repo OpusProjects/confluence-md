@@ -466,6 +466,7 @@ def _inline_md(el) -> str:
         <code>          -->  text  (wrapped in single backticks at output)
         <a href="...">  -->  [text](url)
         <br>            -->  two trailing spaces + newline
+        <p>, <div>      -->  text on its own line
 
     Any unrecognised tag is passed through -- only its inner text is kept.
 
@@ -499,10 +500,17 @@ def _inline_md(el) -> str:
             elif child.name == "br":
                 # Markdown line break: two trailing spaces + newline.
                 parts.append("  \n")
+            elif child.name in ("p", "div"):
+                # A block inside an inline context (a table cell or list
+                # item holding several paragraphs). Set it off with
+                # newlines so consecutive paragraphs do not run together;
+                # the caller decides what a newline becomes there.
+                parts.append(f"\n{inner.strip()}\n")
             else:
                 # Unknown inline tag -- just keep the inner text.
                 parts.append(inner)
-    return "".join(parts)
+    # Adjacent blocks each contribute a newline; keep one between them.
+    return re.sub(r"\n{2,}", "\n", "".join(parts))
 
 
 def _render_list(el, indent: int = 0) -> list[str]:
@@ -535,7 +543,10 @@ def _render_list(el, indent: int = 0) -> list[str]:
             nested.extract()
 
         # Convert the remaining inline content of the <li> to Markdown.
-        lines.append(f"{prefix} {_inline_md(li).strip()}")
+        # An item holding several paragraphs spans several lines; indent
+        # the continuation lines under the text so they stay in the item.
+        continuation = "\n" + " " * (len(prefix) + 1)
+        lines.append(f"{prefix} {_inline_md(li).strip().replace(chr(10), continuation)}")
 
         # Recurse into each nested list with one more indent level.
         for nested in nested_lists:
@@ -571,9 +582,11 @@ def confluence_storage_to_md(
            wrap it (layouts, inline comment markers, unhandled macros
            with a rich-text body, ADF fallbacks), then remove what is
            left of the ac: and ri: namespaces.
-        9. Walk top-level elements and convert each to Markdown:
-           headings, paragraphs, lists, tables, blockquotes, hr, etc.
-        10. If a TOC placeholder is present, build the table of contents
+        9. Unwrap generic block containers (div, section, ...) so the
+           block elements they hold are met by the walk below.
+        10. Walk top-level elements and convert each to Markdown:
+            headings, paragraphs, lists, tables, blockquotes, hr, etc.
+        11. If a TOC placeholder is present, build the table of contents
             from the collected headings and substitute it in.
 
     Args:
@@ -764,7 +777,19 @@ def confluence_storage_to_md(
     for tag in soup.find_all(re.compile(r"^(ac|ri):")):
         tag.decompose()
 
-    # -- Step 9: Walk top-level elements and convert to Markdown -------
+    # -- Step 9: Unwrap generic block containers ------------------------
+    # Confluence wraps every table in <div class="table-wrap">, and
+    # macros, templates and pasted HTML leave other <div>s behind. The
+    # walk below only knows how to render the elements it meets at the
+    # top level, so a wrapped table fell through to the inline fallback
+    # and downloaded as its cell texts run together. Unwrapping first
+    # puts the real block elements at the top level, where they render.
+    # Nested containers unwrap too: find_all returns them innermost
+    # last, and unwrap() on the outer one lifts whatever remains.
+    for container in soup.find_all(["div", "section", "article", "main", "center"]):
+        container.unwrap()
+
+    # -- Step 10: Walk top-level elements and convert to Markdown ------
     lines = []  # Accumulates output Markdown lines.
     headings = []  # Collects (level, text) tuples for TOC generation.
 
@@ -843,7 +868,7 @@ def confluence_storage_to_md(
             # Extract whatever inline text we can and keep it.
             lines.append(_inline_md(el).strip())
 
-    # -- Step 10: Generate the Table of Contents -----------------------
+    # -- Step 11: Generate the Table of Contents -----------------------
     # If a TOC macro was found, build a nested list of anchor links
     # from the headings collected during the element walk, then swap
     # it in for the null-byte placeholder.
