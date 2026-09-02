@@ -1249,6 +1249,43 @@ def get_child_pages(client: Confluence, page_id: str) -> list[dict]:
         start += limit
 
 
+def get_page_attachments(client: Confluence, page_id: str) -> list[dict]:
+    """Fetch all attachments of a page, following pagination.
+
+    A single request was used before, asking for 250 attachments at once;
+    Confluence Cloud caps that at a much lower page size and says so only
+    through the "_links.next" of the response, so images past the cap were
+    reported as "attachment not found on page" and skipped.
+
+    Args:
+        client: Authenticated Confluence client.
+        page_id: ID of the page.
+
+    Returns:
+        A list of attachment resource dicts (possibly empty).
+    """
+    attachments: list[dict] = []
+    start = 0
+    limit = 50
+    while True:
+        response = api(client.get_attachments_from_content, page_id, start=start, limit=limit)
+        # The API may return a dict with "results" or a plain list,
+        # depending on the atlassian-python-api version. The dict form
+        # carries a "_links.next" while more pages remain; the server may
+        # have applied a smaller page size than requested, so the number
+        # of results alone cannot tell whether this was the last page.
+        if isinstance(response, dict):
+            batch = response.get("results", [])
+            more = bool(response.get("_links", {}).get("next"))
+        else:
+            batch = response or []
+            more = len(batch) >= limit
+        attachments.extend(batch)
+        if not batch or not more:
+            return attachments
+        start += len(batch)
+
+
 def _rewrite_page_links(tree: dict) -> None:
     """Resolve confluence-page:// placeholders in a downloaded tree.
 
@@ -1338,8 +1375,7 @@ def download_page(
         for name in re.findall(rf"!\[[^\]]*\]\({re.escape(att_dir.name)}/([^)]+)\)", md_text)
     ]
     if referenced:
-        attachments = api(client.get_attachments_from_content, page_id, limit=250)
-        by_title = {a["title"]: a for a in attachments.get("results", [])}
+        by_title = {a["title"]: a for a in get_page_attachments(client, page_id)}
         att_dir.mkdir(parents=True, exist_ok=True)
         saved = 0
         for name in dict.fromkeys(referenced):

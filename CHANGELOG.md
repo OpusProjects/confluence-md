@@ -65,6 +65,10 @@ project adheres to [Semantic Versioning](https://semver.org/).
   written by hand (`my%20file.png`) was uploaded under the encoded name and
   reported as a missing file. Filenames are now percent-encoded in links on
   download and decoded on upload.
+- `download` fetched only the first page of a page's attachment list, so on
+  pages with many attachments the images past the server's page size were
+  reported as "attachment not found on page" and skipped. The whole list is
+  now fetched.
 
 ## [0.1.0] - 2026-08-12
 
