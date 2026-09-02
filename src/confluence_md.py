@@ -41,7 +41,7 @@ from atlassian import Confluence
 from bs4 import BeautifulSoup, NavigableString, Tag
 from dotenv import load_dotenv
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 # ---------------------------------------------------------------------------
 # Configuration -- loaded once at module level from the .env file
