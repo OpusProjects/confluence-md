@@ -256,19 +256,29 @@ def md_to_confluence_storage(md_text: str, image_paths: list[str] | None = None)
     # python-markdown has no built-in ~~text~~ support, so we convert it
     # to raw <del> HTML before the markdown parser runs. We must skip
     # fenced code blocks and inline code spans to avoid mangling code
-    # content.
+    # content. A fence is recognised the way the fenced_code extension
+    # does: three or more backticks *or tildes* opening a line, closed by
+    # the same run. Matching only "```" left "~~~" fences unprotected, so
+    # a "~~" inside one (a shell here-doc, Lua, Perl) turned into <del>.
+    fence_re = re.compile(r"^(`{3,}|~{3,})[^\n]*\n.*?^\1[ ]*$", re.MULTILINE | re.DOTALL)
+
     def _replace_strikethrough(md_src: str) -> str:
-        parts = re.split(r"(```.*?```)", md_src, flags=re.DOTALL)
-        for i, part in enumerate(parts):
-            # Even-indexed parts are outside code fences; odd are inside.
-            if i % 2 == 0:
-                # Within non-fence text, also protect `inline code` spans.
-                spans = re.split(r"(`[^`\n]*`)", part)
-                for j, span in enumerate(spans):
-                    if j % 2 == 0:
-                        spans[j] = re.sub(r"~~(.+?)~~", r"<del>\1</del>", span)
-                parts[i] = "".join(spans)
+        parts = []
+        pos = 0
+        for fence in fence_re.finditer(md_src):
+            parts.append(_strike_outside_code(md_src[pos : fence.start()]))
+            parts.append(fence.group(0))
+            pos = fence.end()
+        parts.append(_strike_outside_code(md_src[pos:]))
         return "".join(parts)
+
+    def _strike_outside_code(text: str) -> str:
+        # Within non-fence text, also protect `inline code` spans.
+        spans = re.split(r"(`[^`\n]*`)", text)
+        for j, span in enumerate(spans):
+            if j % 2 == 0:
+                spans[j] = re.sub(r"~~(.+?)~~", r"<del>\1</del>", span)
+        return "".join(spans)
 
     md_text = _replace_strikethrough(md_text)
 

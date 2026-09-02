@@ -35,6 +35,23 @@ class TestStrikethrough:
         assert "<del>" not in out
         assert "~~not struck~~" in out
 
+    def test_inside_tilde_fenced_block_untouched(self):
+        out = md_to_confluence_storage("~~~\ncat <<EOF ~~ done ~~\n~~~")
+        assert "<del>" not in out
+        assert "cat <<EOF ~~ done ~~" in out
+
+    def test_inside_longer_fence_untouched(self):
+        out = md_to_confluence_storage("````\n``` nested ```\n~~x~~\n````")
+        assert "<del>" not in out
+        assert "~~x~~" in out
+
+    def test_text_around_fences_still_converted(self):
+        out = md_to_confluence_storage("~~a~~\n\n~~~\n~~b~~\n~~~\n\n~~c~~")
+        assert "<del>a</del>" in out
+        assert "<del>c</del>" in out
+        assert "~~b~~" in out
+        assert out.count("<del>") == 2
+
     def test_inside_inline_code_untouched(self):
         out = md_to_confluence_storage("use `~~literal~~` here")
         assert "<del>" not in out
