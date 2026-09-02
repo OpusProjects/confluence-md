@@ -55,6 +55,10 @@ project adheres to [Semantic Versioning](https://semver.org/).
   paragraphs inside any other `<div>`. Wrappers are now transparent, and
   consecutive paragraphs inside a table cell or list item are kept apart
   (joined by a space in cells, as indented continuation lines in items).
+- `download --recursive` silently lost a page when two siblings sanitised
+  to the same filename (`Setup: A` and `Setup A` both became `Setup_A.md`,
+  the second overwriting the first). Later siblings now get a numeric
+  suffix (`Setup_A_2.md`).
 
 ## [0.1.0] - 2026-08-12
 
