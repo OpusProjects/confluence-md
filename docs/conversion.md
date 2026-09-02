@@ -58,7 +58,9 @@ def hello():
 ````
 
 Converts to / from the Confluence `code` macro with `language=python`.
-The language tag is preserved in both directions.
+The language tag is preserved in both directions. Fences of three or more
+backticks or tildes (`~~~`) are both recognised, and nothing inside a fence is
+treated as Markdown — a `~~` in code is never read as strikethrough.
 
 ---
 
