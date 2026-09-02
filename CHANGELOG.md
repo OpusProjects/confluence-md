@@ -72,6 +72,9 @@ project adheres to [Semantic Versioning](https://semver.org/).
 - A `~~` inside a `~~~`-fenced code block (a shell here-doc, Lua, Perl) was
   turned into strikethrough on upload, corrupting the code. Tilde fences and
   fences longer than three characters are now protected like backtick ones.
+- `upload --recursive` did not recognise the `# Title` heading of a file
+  that ends right after it, with no trailing newline: the page took its
+  title from the filename and the heading was duplicated inside the body.
 
 ## [0.1.0] - 2026-08-12
 

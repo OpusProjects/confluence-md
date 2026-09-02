@@ -16,6 +16,11 @@ class TestSplitLeadingH1:
         assert title == "My Page"
         assert rest == "body text"
 
+    def test_h1_alone_without_trailing_newline(self):
+        title, rest = split_leading_h1("# My Page")
+        assert title == "My Page"
+        assert rest == ""
+
     def test_no_h1(self):
         title, rest = split_leading_h1("just body")
         assert title is None
