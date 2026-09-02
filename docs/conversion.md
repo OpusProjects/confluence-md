@@ -139,6 +139,9 @@ point there, so the images render correctly in any local Markdown preview:
 ![diagram](My_Page_attachments/diagram.png)
 ```
 
+The filename is percent-encoded in the link (`my%20file.png` for an
+attachment called `my file.png`) so that spaces and parentheses cannot end the
+link early; upload decodes it again to find the file and name the attachment.
 External images keep their URL. A download → upload round trip re-attaches
 the same files.
 

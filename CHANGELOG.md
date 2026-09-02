@@ -59,6 +59,12 @@ project adheres to [Semantic Versioning](https://semver.org/).
   to the same filename (`Setup: A` and `Setup A` both became `Setup_A.md`,
   the second overwriting the first). Later siblings now get a numeric
   suffix (`Setup_A_2.md`).
+- Image links written by `download` for attachments with a space or
+  parenthesis in their name (`![a](Page_attachments/my file (1).png)`) did
+  not render in standard Markdown viewers, and a percent-encoded link
+  written by hand (`my%20file.png`) was uploaded under the encoded name and
+  reported as a missing file. Filenames are now percent-encoded in links on
+  download and decoded on upload.
 
 ## [0.1.0] - 2026-08-12
 
