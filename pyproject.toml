@@ -19,9 +19,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/OpusProjects/confluence-md"
-Documentation = "https://github.com/OpusProjects/confluence-md/tree/main/docs"
-Changelog = "https://github.com/OpusProjects/confluence-md/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/blaipr/confluence-md"
+Documentation = "https://github.com/blaipr/confluence-md/tree/main/docs"
+Changelog = "https://github.com/blaipr/confluence-md/blob/main/CHANGELOG.md"
 
 [project.scripts]
 confluence-md = "confluence_md:main"

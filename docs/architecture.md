@@ -53,8 +53,7 @@ tables and blockquotes into Markdown lines.
 
 The project rule that keeps these honest: **every element one pipeline
 learns to produce, the other must learn to parse** — a page must survive
-download → upload without losing structure (see
-[CONTRIBUTING.md](../CONTRIBUTING.md)).
+download → upload without losing structure.
 
 ---
 
