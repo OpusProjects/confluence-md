@@ -5,7 +5,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    # Match the commit style in CONTRIBUTING.md: "build(deps): bump ..."
+    # Commit style: "build(deps): bump ..."
     commit-message:
       prefix: "build"
       include: "scope"
